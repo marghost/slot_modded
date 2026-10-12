@@ -33,8 +33,8 @@ It stays under the same license, GPL-3.0-or-later (see [LICENSE](LICENSE)).
 
 # Try this fork on your device
 
-Both options use the [latest release](https://github.com/marghost/slot_modded/releases/latest). slot's SD card is SD2
-or, on Base OS, the card in TF1.
+Both options use the [latest release](https://github.com/marghost/slot_modded/releases/latest). slot's SD card is the
+card in SD1 (also labelled TF1) if you use one card, or the card in SD2 if you use two.
 
 ## Quick: replace the slot file
 
@@ -50,14 +50,20 @@ To go back to the original slot, delete `System/slot` and rename `System/slot.or
 
 ## Fresh install
 
-For a card without slot, or to start over.
+For a handheld without slot, or to start over. slot runs on top of
+[Base OS](https://github.com/pvaibhav/BaseOS), so Base OS has to be installed first. The original author's
+[installation guide](https://slot-cfw.fyi/#install) walks through every step, with single and dual SD card setups; in
+short:
 
-1. Download `slot-<version>-h700.zip` from the [latest release](https://github.com/marghost/slot_modded/releases/latest)
+1. Flash the [latest Base OS release](https://github.com/pvaibhav/BaseOS/releases/latest) to an SD card, for example
+   with Raspberry Pi Imager, and insert it in SD1.
+2. Turn the handheld on once so Base OS expands its storage, then turn it off when it says no frontend was found.
+3. Download `slot-<version>-h700.zip` from the [latest release](https://github.com/marghost/slot_modded/releases/latest)
    and unzip it.
-2. Turn the handheld off and put the SD card in your computer.
-3. Copy everything inside the unzipped `slot-<version>/` folder onto the root of the card.
-4. Add your games to `Games/GBA`, `Games/GB` or `Games/GBC`, and optionally `gba_bios.bin` to `BIOS/`.
-5. Eject the card safely, put it back in the handheld and turn it on.
+4. Copy everything inside the unzipped `slot-<version>/` folder onto the root of the Base OS card (one card), or onto a
+   second card formatted FAT32 or exFAT with an MBR partition table, for SD2 (two cards).
+5. Add your games, unzipped, to `Games/GBA`, `Games/GB` or `Games/GBC`, and optionally `gba_bios.bin` to `BIOS/`.
+6. Put the card back in the handheld and turn it on.
 
 # Screenshots
 
