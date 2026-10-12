@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/resources/banner.png" width="100%" alt="slot. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
+<img src=".github/resources/banner.png" width="100%" alt="slot_modded. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
 
 <a href="LICENSE"><img src="https://img.shields.io/github/license/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="License"></a>
 <a href="https://slot-cfw.fyi"><img src="https://img.shields.io/badge/Guide-slot--cfw.fyi-4d4d57?style=for-the-badge&labelColor=242429" height="36" alt="Guide"></a>
@@ -30,6 +30,22 @@ It stays under the same license, GPL-3.0-or-later (see [LICENSE](LICENSE)).
   four pages: carousel, in game, screen & sound, and the save state switcher. D-pad Left/Right or L1/R1 turn the
   pages; B or MENU goes back to the menu. START in the save state switcher (shown as "START Help" in its bottom
   bar) opens it on its In Game page; B goes back to the switcher.
+
+# Try this fork on your device
+
+If slot is already installed on your handheld, you only need to swap one file:
+
+1. Download [`slot`](https://github.com/marghost/slot_modded/releases/latest/download/slot) from the
+   [latest release](https://github.com/marghost/slot_modded/releases/latest).
+2. Turn the handheld off and put slot's SD card in your computer: SD2 or, on Base OS, the card in TF1.
+3. In the card's `System` folder, rename `slot` to `slot.orig`. That keeps the original as a backup.
+4. Copy the downloaded `slot` into `System`, so it sits at `System/slot`.
+5. Eject the card safely, put it back in the handheld and turn it on.
+
+To go back to the original, delete `System/slot` and rename `System/slot.orig` back to `slot`.
+
+For a fresh install, download `slot-<version>-h700.zip` from the same release instead, unzip it and copy the contents of
+its `slot-<version>/` folder onto the card.
 
 # Screenshots
 
