@@ -11,6 +11,8 @@ Changes made in this fork, on top of slot 1.6.0 (2026-10-12). Written by Claude 
 - A Button Cheat Sheet entry in the settings menu, between Date & Time and About, lists every button shortcut on four
   pages: carousel, in game, screen & sound, and the save state switcher. D-pad Left/Right or L1/R1 turn the pages; B or
   MENU goes back to the menu.
+- START in the save state switcher opens the Button Cheat Sheet on its In Game page; B goes back to the switcher. Its
+  bottom bar shows "START Help" left of "A Load", except while the undo hint is offered.
 
 ## [1.6.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.6.0)
 

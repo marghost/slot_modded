@@ -60,6 +60,7 @@ pub const CHEAT_PAGES: [CheatPage; 4] = [
             ("Y", "Delete this state"),
             ("X", "Undo save/load (30s)"),
             ("B", "Back to game"),
+            ("START", "Button cheat sheet"),
         ],
         after_rule: &[
             ("Close lid", "Save state, screen off"),

@@ -75,6 +75,7 @@ const SLOT_NAME_OUT_MS: Millis = 800;
 const SLOT_NAME_ALPHA: f32 = 0.4;
 const CORE_PICKER_DIM: f32 = 0.614;
 const CORE_LEGEND_Y: f32 = 386.0;
+const SWITCHER_SHEET_PAGE: usize = 1;
 const LINK_TEXT_Y: f32 = 44.0;
 const LINK_LEGEND_Y: f32 = 422.0;
 const LINK_LEGEND_GAP: f32 = 40.0;
@@ -314,6 +315,7 @@ pub struct App {
     link: Option<LinkSession>,
     sfx: Option<Sfx>,
     polaroids: Option<Polaroids>,
+    switcher_sheet: Option<usize>,
     pending: Option<(PendingUndo, Millis)>,
     legend_faces: Vec<TexId>,
     undo_face: Option<TexId>,
@@ -440,6 +442,7 @@ impl App {
             link: None,
             sfx: None,
             polaroids: None,
+            switcher_sheet: None,
             pending: None,
             legend_faces: Vec::new(),
             undo_face: None,
@@ -683,6 +686,14 @@ impl App {
 
     pub fn set_sticker_face(&mut self, face: TexId) {
         self.sticker_face = Some(face);
+    }
+
+    pub fn cheat_sheet_page(&self) -> Option<usize> {
+        match self.phase {
+            Phase::CheatSheet { page } => Some(page),
+            Phase::Polaroids { .. } => self.switcher_sheet,
+            _ => None,
+        }
     }
 
     pub fn set_cheat_sheet_face(&mut self, face: TexId) {
@@ -1301,7 +1312,24 @@ impl App {
                 Action::FfStart if !self.may_fast_forward() => self.refuse(),
                 _ => {}
             },
+            Phase::Polaroids { .. } if self.switcher_sheet.is_some() => {
+                let pages = CHEAT_PAGES.len();
+                let page = self.switcher_sheet.unwrap_or(0);
+                self.switcher_sheet = match action {
+                    Action::ShelfLeft | Action::GbaDown(Btn::Left | Btn::L1) => {
+                        Some((page + pages - 1) % pages)
+                    }
+                    Action::ShelfRight | Action::GbaDown(Btn::Right | Btn::R1) => {
+                        Some((page + 1) % pages)
+                    }
+                    Action::GbaDown(Btn::B | Btn::Start) | Action::Polaroids | Action::Eject => {
+                        None
+                    }
+                    _ => return,
+                };
+            }
             Phase::Polaroids { .. } => match action {
+                Action::GbaDown(Btn::Start) => self.switcher_sheet = Some(SWITCHER_SHEET_PAGE),
                 Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.flick(Polaroids::left),
                 Action::ShelfRight | Action::GbaDown(Btn::Right) => self.flick(Polaroids::right),
                 Action::GbaDown(Btn::A) => self.load_selected(),
@@ -2083,6 +2111,9 @@ impl App {
             }
             Phase::Playing { cart } if self.screen < 1.0 => self.chrome(cart, 0.0, out),
             Phase::Playing { .. } => self.push_game(out),
+            Phase::Polaroids { .. } if self.switcher_sheet.is_some() => {
+                draw_cheat_sheet(self.cheat_sheet_face, out);
+            }
             Phase::Polaroids { .. } => {
                 self.push_game(out);
                 if let Some(p) = &self.polaroids {
@@ -3162,6 +3193,7 @@ impl App {
         let mut p = Polaroids::new(entries);
         p.set_undo(self.undo_label());
         self.polaroids = Some(p);
+        self.switcher_sheet = None;
         self.phase = Phase::Polaroids { cart };
         self.push_hint_faces();
     }
@@ -3172,6 +3204,7 @@ impl App {
         };
         let cart = std::mem::take(cart);
         self.polaroids = None;
+        self.switcher_sheet = None;
         self.phase = Phase::Playing { cart };
     }
 

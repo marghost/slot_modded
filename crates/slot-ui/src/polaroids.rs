@@ -19,9 +19,15 @@ const DOT_DIM: f32 = 0.35;
 
 const MARGIN: f32 = 16.0;
 
-pub const LEGEND: [(&str, &str); 3] = [("B", "Back"), ("Y", "Delete"), ("A", "Load")];
+pub const LEGEND: [(&str, &str); 4] = [
+    ("B", "Back"),
+    ("Y", "Delete"),
+    (HELP_KEY, "Help"),
+    ("A", "Load"),
+];
 const WAYS_OUT: usize = 2;
 const UNDO_KEY: &str = "X";
+const HELP_KEY: &str = "START";
 
 pub struct PhotoFace {
     pub rgba: Vec<u8>,
@@ -83,12 +89,23 @@ impl Polaroids {
     }
 
     pub fn hints(&self) -> Vec<Hint> {
-        let mut out = hint_row(&LEGEND);
+        self.shown_hints().into_iter().map(|(_, h)| h).collect()
+    }
+
+    fn shown_hints(&self) -> Vec<(usize, Hint)> {
+        let mut out: Vec<(usize, Hint)> = hint_row(&LEGEND)
+            .into_iter()
+            .enumerate()
+            .filter(|(_, h)| self.undo.is_none() || h.key != HELP_KEY)
+            .collect();
         if let Some(label) = &self.undo {
-            out.push(Hint {
-                key: UNDO_KEY,
-                label: label.clone(),
-            });
+            out.push((
+                LEGEND.len(),
+                Hint {
+                    key: UNDO_KEY,
+                    label: label.clone(),
+                },
+            ));
         }
         out
     }
@@ -201,19 +218,19 @@ impl Polaroids {
         let top = OUT_H as f32 - PLATE_H;
         out.push(plate(top));
         let y = top + (PLATE_H - HINT_H as f32) / 2.0;
-        let hints = self.hints();
+        let hints = self.shown_hints();
         let widths: Vec<f32> = hints
             .iter()
-            .map(|h| hint_width(h.key, &h.label) as f32)
+            .map(|(_, h)| hint_width(h.key, &h.label) as f32)
             .collect();
         let tail = &widths[WAYS_OUT..];
         let tail_w = tail.iter().sum::<f32>() + HINT_GAP * (tail.len() - 1) as f32;
         let mut x = MARGIN;
-        for (i, w) in widths.iter().enumerate() {
+        for (i, (w, (face, _))) in widths.iter().zip(&hints).enumerate() {
             if i == WAYS_OUT {
                 x = OUT_W as f32 - MARGIN - tail_w;
             }
-            out.push(hint_quad(x, y, *w, self.hint_faces.get(i).copied()));
+            out.push(hint_quad(x, y, *w, self.hint_faces.get(*face).copied()));
             x += w + HINT_GAP;
         }
         self.draw_dots(top, out);

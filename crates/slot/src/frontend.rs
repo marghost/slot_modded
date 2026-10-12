@@ -771,7 +771,7 @@ fn sync_quick_clock(app: &mut App, compositor: &mut Compositor, state: &mut Quic
 }
 
 fn sync_cheat_sheet(app: &mut App, compositor: &mut Compositor, state: &mut CheatSheetFace) {
-    let Phase::CheatSheet { page } = *app.phase() else {
+    let Some(page) = app.cheat_sheet_page() else {
         return;
     };
     if state.tex.is_some() && state.page == Some(page) {

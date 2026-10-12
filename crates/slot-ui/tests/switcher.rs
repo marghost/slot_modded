@@ -2,9 +2,7 @@ use std::path::Path;
 
 use slot_gfx::{Draw, OUT_H, OUT_W};
 use slot_store::{StateEntry, RING_MAX};
-use slot_ui::{
-    hint_face, hint_width, Polaroids, Printed, DOT, HINT_H, LEGEND, PHOTO_H, PHOTO_W, PLATE_H,
-};
+use slot_ui::{hint_face, hint_width, Polaroids, Printed, DOT, HINT_H, PHOTO_H, PHOTO_W, PLATE_H};
 
 fn entry(stamp: &str) -> StateEntry {
     StateEntry {
@@ -226,21 +224,45 @@ fn the_switcher_puts_the_ways_out_on_the_left() {
     let out = draw(&p);
     let mid = OUT_W as f32 / 2.0;
     for key in ["B", "Y"] {
-        let r = hint_rect(&out, key).unwrap_or_else(|| panic!("no {key} hint"));
+        let r = hint_rect(&p, &out, key).unwrap_or_else(|| panic!("no {key} hint"));
         assert!(r.x + r.w < mid, "{key} is not on the left");
     }
     for key in ["A", "X"] {
-        let r = hint_rect(&out, key).unwrap_or_else(|| panic!("no {key} hint"));
+        let r = hint_rect(&p, &out, key).unwrap_or_else(|| panic!("no {key} hint"));
         assert!(r.x > mid, "{key} is not on the right");
     }
 }
 
-fn hint_rect(out: &[Draw], key: &str) -> Option<Quad> {
-    let i = match key {
-        "X" => LEGEND.len(),
-        _ => LEGEND.iter().position(|(k, _)| *k == key)?,
-    };
+fn hint_rect(p: &Polaroids, out: &[Draw], key: &str) -> Option<Quad> {
+    let i = p.hints().iter().position(|h| h.key == key)?;
     hint_quads(out).get(i).copied()
+}
+
+#[test]
+fn start_help_sits_just_left_of_load() {
+    let p = switcher_with(RING_MAX);
+    let out = draw(&p);
+    let help = hint_rect(&p, &out, "START").expect("no START hint");
+    let load = hint_rect(&p, &out, "A").expect("no A hint");
+    assert!(help.x + help.w <= load.x, "START is not left of A");
+    assert!(help.x > OUT_W as f32 / 2.0, "START is not on the right");
+    for d in dot_rects(&out) {
+        assert!(
+            d.x + d.w <= help.x || d.x >= help.x + help.w,
+            "a dot at {} runs into the START hint",
+            d.x
+        );
+    }
+}
+
+#[test]
+fn start_help_steps_aside_while_undo_is_offered() {
+    let mut p = switcher_with(RING_MAX);
+    assert!(p.hints().iter().any(|h| h.key == "START"));
+    p.set_undo(Some("Undo save"));
+    let keys: Vec<&str> = p.hints().iter().map(|h| h.key).collect();
+    assert!(!keys.contains(&"START"), "START crowds the undo hint");
+    assert!(keys.contains(&"X"));
 }
 
 #[test]

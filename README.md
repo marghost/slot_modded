@@ -28,7 +28,8 @@ It stays under the same license, GPL-3.0-or-later (see [LICENSE](LICENSE)).
   yellow to orange to red as the battery drains.
 - A **Button Cheat Sheet** entry in the settings menu, between Date & Time and About, lists every button shortcut on
   four pages: carousel, in game, screen & sound, and the save state switcher. D-pad Left/Right or L1/R1 turn the
-  pages; B or MENU goes back to the menu.
+  pages; B or MENU goes back to the menu. START in the save state switcher (shown as "START Help" in its bottom
+  bar) opens it on its In Game page; B goes back to the switcher.
 
 ---
 

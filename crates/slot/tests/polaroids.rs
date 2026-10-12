@@ -160,3 +160,61 @@ fn the_switcher_swallows_the_shelf_and_eject_bindings() {
     a.apply(Action::Insert);
     assert!(matches!(a.phase(), Phase::Polaroids { .. }));
 }
+
+#[test]
+fn start_in_the_switcher_shows_the_in_game_page_of_the_cheat_sheet() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.apply(Action::SaveState);
+    a.apply(Action::Polaroids);
+    assert_eq!(a.cheat_sheet_page(), None);
+    a.apply(Action::GbaDown(Btn::Start));
+    assert!(matches!(a.phase(), Phase::Polaroids { .. }));
+    assert_eq!(
+        slot_ui::CHEAT_PAGES[a.cheat_sheet_page().expect("no cheat sheet")].title,
+        "IN GAME"
+    );
+}
+
+#[test]
+fn the_cheat_sheet_over_the_switcher_turns_pages_and_keeps_the_switcher_buttons_away() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let (snapshot, loaded) = StubSnapshot::pair();
+    let mut a = app_playing_with(d.path(), "Emerald", snapshot);
+    a.apply(Action::SaveState);
+    a.apply(Action::Polaroids);
+    a.apply(Action::GbaDown(Btn::Start));
+    let first = a.cheat_sheet_page().expect("no cheat sheet");
+    a.apply(Action::GbaDown(Btn::Right));
+    a.apply(Action::GbaDown(Btn::L1));
+    a.apply(Action::GbaDown(Btn::R1));
+    assert_eq!(a.cheat_sheet_page(), Some(first + 1));
+    a.apply(Action::GbaDown(Btn::A));
+    a.apply(Action::GbaDown(Btn::Y));
+    assert!(loaded.lock().expect("loaded").is_none(), "A loaded a state");
+    assert!(
+        a.cheat_sheet_page().is_some(),
+        "a switcher button closed it"
+    );
+}
+
+#[test]
+fn b_closes_the_cheat_sheet_back_onto_the_switcher() {
+    for close in [
+        Action::GbaDown(Btn::B),
+        Action::GbaDown(Btn::Start),
+        Action::Polaroids,
+        Action::Eject,
+    ] {
+        let d = tmp_root_with_carts(&["Emerald"]);
+        let mut a = app_playing_in(d.path(), "Emerald");
+        a.apply(Action::SaveState);
+        a.apply(Action::Polaroids);
+        a.apply(Action::GbaDown(Btn::Start));
+        a.apply(close);
+        assert_eq!(a.cheat_sheet_page(), None, "{close:?}");
+        assert!(matches!(a.phase(), Phase::Polaroids { .. }), "{close:?}");
+        a.apply(Action::GbaDown(Btn::B));
+        assert!(matches!(a.phase(), Phase::Playing { .. }), "{close:?}");
+    }
+}

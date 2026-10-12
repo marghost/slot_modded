@@ -143,9 +143,10 @@ fn the_plate_is_drawn_only_over_the_switcher_and_only_while_the_offer_stands() {
     a.tick_ms(40_000);
     let mut expired = Vec::new();
     a.draw(&mut expired);
+    assert!(!a.undo_available(44_000), "the offer outlived its window");
     assert_eq!(
         open.len(),
-        expired.len() + 1,
-        "the plate outlived the offer"
+        expired.len(),
+        "the undo hint did not hand its place back to START"
     );
 }
