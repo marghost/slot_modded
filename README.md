@@ -41,3 +41,10 @@ It stays under the same license, GPL-3.0-or-later (see [LICENSE](LICENSE)).
   there.
 - **No warranty.** As the GPL-3.0-or-later license says, this software comes with no warranty. AI-written code can
   contain mistakes that tests do not catch. Use it at your own risk, and keep a backup of your saves and SD card.
+
+---
+
+# Support the original author
+
+If you enjoy slot, consider supporting its original author, Brandon Kowalski, on
+[Ko-fi](https://ko-fi.com/kwallbmoc). This fork does not take donations.
