@@ -38,14 +38,15 @@ or, on Base OS, the card in TF1.
 
 ## Quick: replace the slot file
 
-For a handheld that already runs slot. Your games, saves and states stay as they are.
+For a handheld that already runs slot OS. Your games, saves and states stay as they are.
 
 1. Download [`slot`](https://github.com/marghost/slot_modded/releases/latest/download/slot).
 2. Turn the handheld off and put slot's SD card in your computer.
-3. Copy the downloaded `slot` into the card's `System` folder and overwrite the existing `System/slot`.
-4. Eject the card safely, put it back in the handheld and turn it on.
+3. In the card's `System` folder, rename the original `slot` file to `slot.orig`. That keeps it as a backup.
+4. Copy the downloaded `slot` into the card's `System` folder.
+5. Eject the card safely, put it back in the handheld and turn it on.
 
-To be able to go back to the original slot, copy `System/slot` somewhere safe before step 3.
+To go back to the original slot, delete `System/slot` and rename `System/slot.orig` back to `slot`.
 
 ## Fresh install
 
