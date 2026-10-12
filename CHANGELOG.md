@@ -1,6 +1,6 @@
 # Changelog
 
-## marghost fork (unreleased)
+## [v1.6.0-mod.1](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.1) (marghost fork)
 
 Changes made in this fork, on top of slot 1.6.0 (2026-10-12). Written by Claude Opus (AI), see the
 [Fork AI Disclosure](README.md#fork-ai-disclosure):
