@@ -50,16 +50,19 @@ its `slot-<version>/` folder onto the card.
 # Screenshots
 
 <p align="center">
-<img src=".github/resources/screenshots/fork-settings-cheat-sheet.png" width="48%" alt="The settings menu with the new Button Cheat Sheet row between Date & Time and About">
-<img src=".github/resources/screenshots/fork-cheat-sheet-page.png" width="48%" alt="The In Game page of the Button Cheat Sheet, buttons in yellow and what they do in white">
+<img src=".github/resources/screenshots/fork-settings-cheat-sheet.png" width="60%" alt="The settings menu with the new Button Cheat Sheet row between Date & Time and About"><br>
+<em>The settings menu, with the new Button Cheat Sheet entry.</em>
 </p>
 
 <p align="center">
-<img src=".github/resources/screenshots/fork-switcher-battery.png" width="60%" alt="The save state switcher with START Help left of A Load in its bottom bar, and the battery badge in the bezel's bottom-right corner">
+<img src=".github/resources/screenshots/fork-cheat-sheet-page.png" width="60%" alt="The In Game page of the Button Cheat Sheet, buttons in yellow and what they do in white"><br>
+<em>Button Cheat Sheet</em>
 </p>
 
-<p align="center"><sub>The settings menu and a cheat sheet page, then the save state switcher with its START Help hint and the battery
-badge in the bezel's bottom-right corner. Captured from the desktop build in a 4:3 window, as on the RG35XXSP.</sub></p>
+<p align="center">
+<img src=".github/resources/screenshots/fork-switcher-battery.png" width="60%" alt="The save state switcher with START Help left of A Load in its bottom bar, and the battery badge in the bezel's bottom-right corner"><br>
+<em>The battery percentage in the bottom-right corner, and START Help to open the cheat sheet from the save state switcher.</em>
+</p>
 
 ---
 
