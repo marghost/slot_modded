@@ -106,6 +106,41 @@ pub fn coverage(dst_w: u32, dst_h: u32, layout: &Layout) -> Vec<u8> {
     out
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn draw_line(
+    dst: &mut [u8],
+    dst_w: u32,
+    dst_h: u32,
+    x: f32,
+    baseline: f32,
+    line: &str,
+    px: f32,
+    colour: [u8; 3],
+) {
+    let Some(font) = label_font() else { return };
+    let mut cov = vec![0u8; (dst_w * dst_h) as usize];
+    let mut pen = x;
+    for ch in line.chars() {
+        let (m, glyph) = font.rasterize(ch, px);
+        stamp(
+            &mut cov,
+            dst_w,
+            dst_h,
+            (pen + m.xmin as f32).round() as i32,
+            (baseline - (m.height as f32 + m.ymin as f32)).round() as i32,
+            &glyph,
+            m.width as u32,
+            m.height as u32,
+        );
+        pen += m.advance_width;
+    }
+    for (i, a) in cov.into_iter().enumerate() {
+        if a > 0 {
+            blend(&mut dst[i * 4..i * 4 + 4], a as u32, colour);
+        }
+    }
+}
+
 fn block_height(font: &Font, px: f32, lines: usize) -> f32 {
     match font.horizontal_line_metrics(px) {
         Some(vm) => vm.new_line_size * lines as f32,

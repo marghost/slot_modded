@@ -13,12 +13,12 @@ use slot_store::{
     VOLUME_MAX,
 };
 use slot_ui::{
-    board_from, board_zoom, draw_backdrop, draw_empty_slot, draw_footer, draw_slot_name,
-    draw_sticker, ease, grown, lid_at, lid_from, lift_of, on_board, shelf_cart_at, ClockPicker,
-    Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice,
-    QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, SlotChrome, TexId, Toast,
-    BOARD_W, BOARD_X, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HINT_H, HOP_LIFT,
-    SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
+    board_from, board_zoom, draw_backdrop, draw_cheat_sheet, draw_empty_slot, draw_footer,
+    draw_slot_name, draw_sticker, ease, grown, lid_at, lid_from, lift_of, on_board, shelf_cart_at,
+    ClockPicker, Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids,
+    PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, SlotChrome,
+    TexId, Toast, BOARD_W, BOARD_X, CART_W, CHEAT_PAGES, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE,
+    HINT_H, HOP_LIFT, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
 };
 
 use crate::audio::Sfx;
@@ -254,6 +254,9 @@ pub enum Phase {
         cart: String,
     },
     About,
+    CheatSheet {
+        page: usize,
+    },
     Doze {
         cart: Option<String>,
     },
@@ -318,6 +321,7 @@ pub struct App {
     quick_menu_faces: Option<QuickMenuFaces>,
     quick_clock_faces: Option<[(TexId, u32, u32); 2]>,
     sticker_face: Option<TexId>,
+    cheat_sheet_face: Option<TexId>,
     wallpaper: Option<TexId>,
     battery_percent: slot_ui::Printed,
     bolt: Option<TexId>,
@@ -443,6 +447,7 @@ impl App {
             quick_menu_faces: None,
             quick_clock_faces: None,
             sticker_face: None,
+            cheat_sheet_face: None,
             wallpaper: None,
             battery_percent: slot_ui::Printed::default(),
             bolt: None,
@@ -660,7 +665,11 @@ impl App {
             QuickRow::EjectSave => Some(QuickValue::flag(self.state.eject_save)),
             QuickRow::Turbo => Some(QuickValue::flag(self.state.turbo)),
             QuickRow::Rewind => Some(QuickValue::flag(self.state.rewind)),
-            QuickRow::DateTime | QuickRow::About | QuickRow::Screen | QuickRow::Game => None,
+            QuickRow::DateTime
+            | QuickRow::CheatSheet
+            | QuickRow::About
+            | QuickRow::Screen
+            | QuickRow::Game => None,
         }
     }
 
@@ -674,6 +683,10 @@ impl App {
 
     pub fn set_sticker_face(&mut self, face: TexId) {
         self.sticker_face = Some(face);
+    }
+
+    pub fn set_cheat_sheet_face(&mut self, face: TexId) {
+        self.cheat_sheet_face = Some(face);
     }
 
     pub fn set_clock_faces(&mut self, line: TexId, hint: TexId) {
@@ -1302,6 +1315,23 @@ impl App {
                     row: QuickRow::About,
                 }
             }
+            Phase::CheatSheet { page } => {
+                let pages = CHEAT_PAGES.len();
+                self.phase = match action {
+                    Action::GbaDown(Btn::Left | Btn::L1) => Phase::CheatSheet {
+                        page: (page + pages - 1) % pages,
+                    },
+                    Action::GbaDown(Btn::Right | Btn::R1) => Phase::CheatSheet {
+                        page: (page + 1) % pages,
+                    },
+                    Action::GbaDown(Btn::B) | Action::QuickMenu | Action::Eject => {
+                        Phase::QuickMenu {
+                            row: QuickRow::CheatSheet,
+                        }
+                    }
+                    _ => return,
+                };
+            }
             Phase::QuickMenu { row } => self.quick_menu_input(row, action),
             _ => {}
         }
@@ -1338,6 +1368,7 @@ impl App {
                 self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
             }
             QuickRow::About => self.phase = Phase::About,
+            QuickRow::CheatSheet => self.phase = Phase::CheatSheet { page: 0 },
             QuickRow::Screen | QuickRow::Game => {
                 if let Some(row) = row.child() {
                     self.phase = Phase::QuickMenu { row };
@@ -1390,7 +1421,11 @@ impl App {
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
             QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
-            QuickRow::DateTime | QuickRow::About | QuickRow::Screen | QuickRow::Game => return,
+            QuickRow::DateTime
+            | QuickRow::CheatSheet
+            | QuickRow::About
+            | QuickRow::Screen
+            | QuickRow::Game => return,
         }
         self.persist();
     }
@@ -2025,6 +2060,11 @@ impl App {
             Phase::About => {
                 draw_backdrop(self.wallpaper, out);
                 draw_sticker(self.sticker_face, out);
+                return;
+            }
+            Phase::CheatSheet { .. } => {
+                draw_backdrop(self.wallpaper, out);
+                draw_cheat_sheet(self.cheat_sheet_face, out);
                 return;
             }
             Phase::Inserting { cart, resumed, .. } => {

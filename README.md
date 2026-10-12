@@ -26,6 +26,9 @@ It stays under the same license, GPL-3.0-or-later (see [LICENSE](LICENSE)).
 - The battery level (gauge + "NN%", a bolt while charging) stays on screen in game, in the bottom-right corner over
   the GBA SP bezel, on 4:3 screens such as the RG35XXSP. It is half transparent, and the gauge fill goes from green to
   yellow to orange to red as the battery drains.
+- A **Button Cheat Sheet** entry in the settings menu, between Date & Time and About, lists every button shortcut on
+  four pages: carousel, in game, screen & sound, and the save state switcher. D-pad Left/Right or L1/R1 turn the
+  pages; B or MENU goes back to the menu.
 
 ---
 

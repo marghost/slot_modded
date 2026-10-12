@@ -119,6 +119,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::Screen,
         QuickRow::Game,
         QuickRow::DateTime,
+        QuickRow::CheatSheet,
         QuickRow::About,
         QuickRow::Screen,
     ] {
@@ -314,7 +315,7 @@ fn colour_correction_leaves_the_settings_around_it_alone() {
 fn the_arrows_change_nothing_on_a_row_that_opens() {
     let (d, mut a, _) = on_carousel();
     let before = std::fs::read(d.path().join("Config/slot.state")).expect("read slot.state");
-    for row in [QuickRow::DateTime, QuickRow::About] {
+    for row in [QuickRow::DateTime, QuickRow::CheatSheet, QuickRow::About] {
         open_at(&mut a, row);
         press(&mut a, Btn::Left);
         press(&mut a, Btn::Right);
@@ -336,6 +337,55 @@ fn a_on_about_opens_the_label_and_b_comes_back_to_the_menu() {
     assert!(matches!(a.phase(), Phase::About), "{:?}", a.phase());
     press(&mut a, Btn::B);
     assert_eq!(a.quick_menu(), Some(QuickRow::About));
+}
+
+#[test]
+fn a_on_the_cheat_sheet_opens_its_first_page_and_b_comes_back_to_the_menu() {
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::CheatSheet);
+    press(&mut a, Btn::A);
+    assert!(
+        matches!(a.phase(), Phase::CheatSheet { page: 0 }),
+        "{:?}",
+        a.phase()
+    );
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::CheatSheet));
+}
+
+#[test]
+fn the_cheat_sheet_pages_turn_both_ways_and_wrap() {
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::CheatSheet);
+    press(&mut a, Btn::A);
+    let page = |a: &App| match a.phase() {
+        Phase::CheatSheet { page } => *page,
+        other => panic!("left the cheat sheet: {other:?}"),
+    };
+    press(&mut a, Btn::Left);
+    assert_eq!(
+        page(&a),
+        slot_ui::CHEAT_PAGES.len() - 1,
+        "left from the first page did not wrap"
+    );
+    press(&mut a, Btn::R1);
+    assert_eq!(page(&a), 0);
+    press(&mut a, Btn::Right);
+    press(&mut a, Btn::Right);
+    assert_eq!(page(&a), 2);
+    press(&mut a, Btn::L1);
+    assert_eq!(page(&a), 1);
+}
+
+#[test]
+fn menu_or_holding_menu_leaves_the_cheat_sheet() {
+    for leave in [Action::QuickMenu, Action::Eject] {
+        let (_d, mut a, _) = on_carousel();
+        open_at(&mut a, QuickRow::CheatSheet);
+        press(&mut a, Btn::A);
+        a.apply(leave);
+        assert_eq!(a.quick_menu(), Some(QuickRow::CheatSheet), "{leave:?}");
+    }
 }
 
 #[test]

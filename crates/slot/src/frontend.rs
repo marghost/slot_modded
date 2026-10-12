@@ -7,13 +7,13 @@ use slot_input::{InputSource, Millis};
 use slot_power::{Battery, Platform, Power};
 use slot_store::format_stamp;
 use slot_ui::{
-    arrows_hint_face, badge_face, battery_badge_face, bezel_face, cart_shadow, chip_face,
-    chip_shadow_face, date_time_text, gb_cart_shadow, hhmm, hint_face, icon_face, menu_face,
-    photo_face, quick_caret_face, quick_label_face, quick_legend_faces, quick_value_face,
-    rebuild_count_face, rebuild_title_face, set_clock_hint_face, socket_face, sticker_face,
-    title_face, toast_face, wallpaper_face, word_face, CartFace, GbShell, Icon, LinkBadge,
-    PowerChoice, QuickMenuFaces, QuickRow, QuickValue, RebuildScreen, StickerFields, Toast,
-    UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
+    arrows_hint_face, badge_face, battery_badge_face, bezel_face, cart_shadow, cheat_sheet_face,
+    chip_face, chip_shadow_face, date_time_text, gb_cart_shadow, hhmm, hint_face, icon_face,
+    menu_face, photo_face, quick_caret_face, quick_label_face, quick_legend_faces,
+    quick_value_face, rebuild_count_face, rebuild_title_face, set_clock_hint_face, socket_face,
+    sticker_face, title_face, toast_face, wallpaper_face, word_face, CartFace, GbShell, Icon,
+    LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue, RebuildScreen, StickerFields,
+    Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
 };
 
 use crate::app::{App, LinkRow, Phase};
@@ -54,6 +54,7 @@ pub struct Frontend {
     switcher: Switcher,
     clocks: Clocks,
     about: AboutFace,
+    cheat_sheet: CheatSheetFace,
     quick_clock: QuickClock,
     battery_badge: Option<Battery>,
 }
@@ -71,6 +72,12 @@ struct QuickClock {
     dim: Option<TexId>,
     lit: Option<TexId>,
     shown: String,
+}
+
+#[derive(Default)]
+struct CheatSheetFace {
+    tex: Option<TexId>,
+    page: Option<usize>,
 }
 
 #[derive(Default)]
@@ -136,6 +143,7 @@ impl Frontend {
             switcher: Switcher::default(),
             clocks: Clocks::default(),
             about: AboutFace::default(),
+            cheat_sheet: CheatSheetFace::default(),
             quick_clock: QuickClock::default(),
             battery_badge: None,
         }
@@ -354,6 +362,7 @@ impl Frontend {
         sync_clock(self.session.app_mut(), compositor, &mut self.clocks);
         sync_battery_badge(self.session.app(), compositor, &mut self.battery_badge);
         sync_about(self.session.app_mut(), compositor, &mut self.about);
+        sync_cheat_sheet(self.session.app_mut(), compositor, &mut self.cheat_sheet);
         sync_quick_clock(self.session.app_mut(), compositor, &mut self.quick_clock);
         sync_core_picker(
             self.session.app_mut(),
@@ -759,6 +768,18 @@ fn sync_quick_clock(app: &mut App, compositor: &mut Compositor, state: &mut Quic
     let lit = upload(compositor, &mut state.lit, lit);
     app.set_quick_clock_faces((dim, dim_size.0, dim_size.1), (lit, lit_size.0, lit_size.1));
     state.shown = text;
+}
+
+fn sync_cheat_sheet(app: &mut App, compositor: &mut Compositor, state: &mut CheatSheetFace) {
+    let Phase::CheatSheet { page } = *app.phase() else {
+        return;
+    };
+    if state.tex.is_some() && state.page == Some(page) {
+        return;
+    }
+    state.page = Some(page);
+    let id = upload(compositor, &mut state.tex, cheat_sheet_face(page));
+    app.set_cheat_sheet_face(id);
 }
 
 fn sync_about(app: &mut App, compositor: &mut Compositor, state: &mut AboutFace) {

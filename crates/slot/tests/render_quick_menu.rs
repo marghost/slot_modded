@@ -76,6 +76,7 @@ fn the_quick_menu_renders_full_screen() {
         ("screen", QuickRow::Screen),
         ("game", QuickRow::Game),
         ("date-time", QuickRow::DateTime),
+        ("cheat-sheet", QuickRow::CheatSheet),
         ("about", QuickRow::About),
     ] {
         for _ in bar_on.position()..selected.position() {
@@ -111,7 +112,10 @@ fn the_quick_menu_renders_full_screen() {
                 (32..=36).contains(&first),
                 "{name}: {row:?}'s label starts at x {first}"
             );
-            if matches!(row, QuickRow::About | QuickRow::Screen | QuickRow::Game) {
+            if matches!(
+                row,
+                QuickRow::About | QuickRow::CheatSheet | QuickRow::Screen | QuickRow::Game
+            ) {
                 continue;
             }
             let value = inked(&px, 360..OUT_W as usize, top);

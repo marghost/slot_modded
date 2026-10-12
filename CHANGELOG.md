@@ -8,6 +8,9 @@ Changes made in this fork, on top of slot 1.6.0 (2026-10-12). Written by Claude 
 - In game, on 4:3 screens (RG35XXSP), a battery gauge and the battery percentage stay on screen in the bottom-right
   corner, over the GBA SP bezel. A bolt appears while charging. The badge is half transparent, and the gauge fill goes
   from green to yellow to orange to red as the battery drains.
+- A Button Cheat Sheet entry in the settings menu, between Date & Time and About, lists every button shortcut on four
+  pages: carousel, in game, screen & sound, and the save state switcher. D-pad Left/Right or L1/R1 turn the pages; B or
+  MENU goes back to the menu.
 
 ## [1.6.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.6.0)
 
