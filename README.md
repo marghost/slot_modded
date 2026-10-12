@@ -33,19 +33,30 @@ It stays under the same license, GPL-3.0-or-later (see [LICENSE](LICENSE)).
 
 # Try this fork on your device
 
-If slot is already installed on your handheld, you only need to swap one file:
+Both options use the [latest release](https://github.com/marghost/slot_modded/releases/latest). slot's SD card is SD2
+or, on Base OS, the card in TF1.
 
-1. Download [`slot`](https://github.com/marghost/slot_modded/releases/latest/download/slot) from the
-   [latest release](https://github.com/marghost/slot_modded/releases/latest).
-2. Turn the handheld off and put slot's SD card in your computer: SD2 or, on Base OS, the card in TF1.
-3. In the card's `System` folder, rename `slot` to `slot.orig`. That keeps the original as a backup.
-4. Copy the downloaded `slot` into `System`, so it sits at `System/slot`.
+## Quick: replace the slot file
+
+For a handheld that already runs slot. Your games, saves and states stay as they are.
+
+1. Download [`slot`](https://github.com/marghost/slot_modded/releases/latest/download/slot).
+2. Turn the handheld off and put slot's SD card in your computer.
+3. Copy the downloaded `slot` into the card's `System` folder and overwrite the existing `System/slot`.
+4. Eject the card safely, put it back in the handheld and turn it on.
+
+To be able to go back to the original slot, copy `System/slot` somewhere safe before step 3.
+
+## Fresh install
+
+For a card without slot, or to start over.
+
+1. Download `slot-<version>-h700.zip` from the [latest release](https://github.com/marghost/slot_modded/releases/latest)
+   and unzip it.
+2. Turn the handheld off and put the SD card in your computer.
+3. Copy everything inside the unzipped `slot-<version>/` folder onto the root of the card.
+4. Add your games to `Games/GBA`, `Games/GB` or `Games/GBC`, and optionally `gba_bios.bin` to `BIOS/`.
 5. Eject the card safely, put it back in the handheld and turn it on.
-
-To go back to the original, delete `System/slot` and rename `System/slot.orig` back to `slot`.
-
-For a fresh install, download `slot-<version>-h700.zip` from the same release instead, unzip it and copy the contents of
-its `slot-<version>/` folder onto the card.
 
 # Screenshots
 
