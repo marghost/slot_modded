@@ -34,6 +34,7 @@ pub struct Compositor {
     u_bezel_gain: gl::types::GLint,
     u_bezel_alpha: gl::types::GLint,
     bezel: Option<gl::types::GLuint>,
+    overlay: Option<(gl::types::GLuint, u32, u32)>,
     turn: Option<Turn>,
 }
 
@@ -99,6 +100,7 @@ impl Compositor {
                 u_bezel_gain,
                 u_bezel_alpha,
                 bezel: None,
+                overlay: None,
                 turn: None,
             })
         }
@@ -270,20 +272,21 @@ impl Compositor {
     }
 
     pub fn set_bezel(&mut self, w: u32, h: u32, rgba: &[u8]) {
-        let stride = w as usize * 4;
-        let mut bottom_up = Vec::with_capacity(rgba.len());
-        for row in rgba.chunks_exact(stride).rev() {
-            bottom_up.extend_from_slice(row);
-        }
-        let tex = crate::gl::texture(
-            w,
-            h,
-            gl::LINEAR,
-            gl::CLAMP_TO_EDGE,
-            gl::RGBA,
-            Some(&bottom_up),
-        );
+        let tex = bottom_up_texture(w, h, rgba);
         if let Some(old) = self.bezel.replace(tex) {
+            unsafe { gl::DeleteTextures(1, &old) };
+        }
+    }
+
+    pub fn set_overlay(&mut self, w: u32, h: u32, rgba: &[u8]) {
+        let tex = bottom_up_texture(w, h, rgba);
+        if let Some((old, _, _)) = self.overlay.replace((tex, w, h)) {
+            unsafe { gl::DeleteTextures(1, &old) };
+        }
+    }
+
+    pub fn clear_overlay(&mut self) {
+        if let Some((old, _, _)) = self.overlay.take() {
             unsafe { gl::DeleteTextures(1, &old) };
         }
     }
@@ -391,8 +394,40 @@ impl Compositor {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
         self.quad.draw();
+        if let Some((tex, w, h)) = self.overlay {
+            let scale = window.0 as f32 / OUT_W as f32;
+            let (w, h) = (
+                (w as f32 * scale).round() as i32,
+                (h as f32 * scale).round() as i32,
+            );
+            let (x, y) = (window.0 as i32 - w, -drop);
+            unsafe {
+                gl::Viewport(x, y, w, h);
+                gl::Uniform1f(self.u_bezel_alpha, alpha * OVERLAY_ALPHA);
+                gl::BindTexture(gl::TEXTURE_2D, tex);
+            }
+            self.quad.draw();
+        }
         unsafe { gl::Disable(gl::BLEND) };
     }
+}
+
+const OVERLAY_ALPHA: f32 = 0.5;
+
+fn bottom_up_texture(w: u32, h: u32, rgba: &[u8]) -> gl::types::GLuint {
+    let stride = w as usize * 4;
+    let mut bottom_up = Vec::with_capacity(rgba.len());
+    for row in rgba.chunks_exact(stride).rev() {
+        bottom_up.extend_from_slice(row);
+    }
+    crate::gl::texture(
+        w,
+        h,
+        gl::LINEAR,
+        gl::CLAMP_TO_EDGE,
+        gl::RGBA,
+        Some(&bottom_up),
+    )
 }
 
 impl Compositor {
@@ -423,6 +458,9 @@ impl Drop for Compositor {
             gl::DeleteProgram(self.blit);
             gl::DeleteProgram(self.bezel_prog);
             if let Some(tex) = self.bezel {
+                gl::DeleteTextures(1, &tex);
+            }
+            if let Some((tex, _, _)) = self.overlay {
                 gl::DeleteTextures(1, &tex);
             }
             if let Some(turn) = &self.turn {

@@ -1,5 +1,5 @@
 use slot_power::{Battery, Charge};
-use slot_ui::{draw_gauge, Draw, Printed, TexId, GAUGE_W, WALL};
+use slot_ui::{battery_badge_face, draw_gauge, level_colour, Draw, Printed, TexId, GAUGE_W, WALL};
 
 fn percent_face() -> Printed {
     Printed { face: None, w: 30 }
@@ -145,4 +145,59 @@ fn no_reading_draws_nothing() {
     let mut out = Vec::new();
     draw_gauge(24.0, 400.0, None, percent_face(), None, &mut out);
     assert!(out.is_empty());
+}
+
+fn inked(rgba: &[u8]) -> usize {
+    rgba.chunks_exact(4).filter(|p| p[3] > 0).count()
+}
+
+#[test]
+fn the_badge_keeps_its_size_whatever_the_charge() {
+    let idle = battery_badge_face(Battery {
+        percent: 68,
+        charge: Charge::Discharging,
+    });
+    let charging = battery_badge_face(Battery {
+        percent: 68,
+        charge: Charge::Charging,
+    });
+    assert!(idle.w > 0 && idle.h > 0);
+    assert_eq!(idle.rgba.len(), (idle.w * idle.h * 4) as usize);
+    assert_eq!((idle.w, idle.h), (charging.w, charging.h));
+    assert!(
+        inked(&charging.rgba) > inked(&idle.rgba),
+        "the bolt did not draw while charging"
+    );
+}
+
+#[test]
+fn a_fuller_battery_inks_more_of_the_badge() {
+    let face = |percent| {
+        battery_badge_face(Battery {
+            percent,
+            charge: Charge::Discharging,
+        })
+    };
+    let (low, high) = (face(10), face(100));
+    assert!(inked(&high.rgba) > inked(&low.rgba));
+}
+
+#[test]
+fn the_fill_goes_from_green_to_red_as_the_battery_drains() {
+    let [green, yellow, orange, red] = [100, 50, 25, 10].map(level_colour);
+    assert!(green[1] > green[0], "full is not green: {green:?}");
+    assert!(
+        red[0] > red[1] && red[0] > red[2],
+        "empty is not red: {red:?}"
+    );
+    let bands = [green, yellow, orange, red];
+    for (i, a) in bands.iter().enumerate() {
+        for b in &bands[i + 1..] {
+            assert_ne!(a, b);
+        }
+    }
+    assert_eq!(level_colour(51), green);
+    assert_eq!(level_colour(26), yellow);
+    assert_eq!(level_colour(11), orange);
+    assert_eq!(level_colour(0), red);
 }
