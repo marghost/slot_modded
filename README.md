@@ -12,24 +12,18 @@
 
 # About this fork
 
-This is an **unofficial fork** of [slot](https://github.com/BrandonKowalski/slot) by Brandon Kowalski, maintained by
-marghost. All credit for the original project goes to Brandon Kowalski. This fork is not affiliated with or endorsed by
-him, so please do not report problems with this fork to the original project.
+An **unofficial fork** of [slot](https://github.com/BrandonKowalski/slot) by Brandon Kowalski, who deserves all the
+credit. Not affiliated with or endorsed by him: please report this fork's problems here. Same license, GPL-3.0-or-later.
 
-It stays under the same license, GPL-3.0-or-later (see [LICENSE](LICENSE)).
+[User guide](https://slot-cfw.fyi) · [Changelog](CHANGELOG.md)
 
-- User guide (for the original slot, which this fork follows): [slot-cfw.fyi](https://slot-cfw.fyi)
-- Release notes, including this fork's changes: [CHANGELOG](CHANGELOG.md)
+# What's new
 
-# Changes from the original
-
-- The battery level (gauge + "NN%", a bolt while charging) stays on screen in game, in the bottom-right corner over
-  the GBA SP bezel, on 4:3 screens such as the RG35XXSP. It is half transparent, and the gauge fill goes from green to
-  yellow to orange to red as the battery drains.
-- A **Button Cheat Sheet** entry in the settings menu, between Date & Time and About, lists every button shortcut on
-  four pages: carousel, in game, screen & sound, and the save state switcher. D-pad Left/Right or L1/R1 turn the
-  pages; B or MENU goes back to the menu. START in the save state switcher (shown as "START Help" in its bottom
-  bar) opens it on its In Game page; B goes back to the switcher.
+| Feature | How to get there |
+|---|---|
+| **Battery %** in game | Always on, bottom-right of the bezel (4:3 screens like the RG35XXSP). Green → red as it drains. |
+| **Button Cheat Sheet** | Settings: MENU → **Button Cheat Sheet** |
+| **Button Cheat Sheet** in game | Save state switcher: double-tap MENU → **START** |
 
 # Try this fork on your device
 
