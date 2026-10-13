@@ -2,6 +2,7 @@ use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
 use slot_store::{Cart, Platform};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::OnceLock;
 
 use crate::cart::{cart_box, gb_shell_of, label_colour, label_text, CART_H, CART_W};
 use crate::favorite::FAVORITE_D;
@@ -56,7 +57,7 @@ pub struct Shelf {
     shadow: Option<TexId>,
     gb_shadow: Option<TexId>,
     gbc_shadow: Option<TexId>,
-    shells: Vec<Option<GbShell>>,
+    shells: Vec<OnceLock<Option<GbShell>>>,
     ride: f32,
     vel: f32,
     held: Option<(i32, Millis, usize)>,
@@ -65,7 +66,7 @@ pub struct Shelf {
 impl Shelf {
     pub fn new(carts: Vec<Cart>) -> Self {
         Shelf {
-            shells: carts.iter().map(gb_shell_of).collect(),
+            shells: carts.iter().map(|_| OnceLock::new()).collect(),
             faces: vec![None; carts.len()],
             favorites: HashSet::new(),
             favorite_face: None,
@@ -79,6 +80,13 @@ impl Shelf {
             vel: 0.0,
             held: None,
         }
+    }
+
+    fn shell(&self, i: usize) -> Option<GbShell> {
+        let cart = self.carts.get(i)?;
+        self.shells
+            .get(i)
+            .and_then(|once| *once.get_or_init(|| gb_shell_of(cart)))
     }
 
     pub fn set_favorites(&mut self, favorites: HashSet<(Platform, String)>) {
@@ -108,7 +116,7 @@ impl Shelf {
             .iter()
             .map(|c| faces.remove(&(c.platform, c.stem.clone())))
             .collect();
-        self.shells = carts.iter().map(gb_shell_of).collect();
+        self.shells = carts.iter().map(|_| OnceLock::new()).collect();
         let index = selected
             .and_then(|(p, stem)| carts.iter().position(|c| c.platform == p && c.stem == stem))
             .unwrap_or(self.index.min(carts.len().saturating_sub(1)));
@@ -380,7 +388,7 @@ impl Shelf {
             let x = x + shake;
             let y = foot_y(ch as f32) - h;
             if alpha < 1.0 {
-                let backing = match self.shells.get(i).copied().flatten() {
+                let backing = match self.shell(i) {
                     None => self.shadow,
                     Some(GbShell::Notched) => self.gb_shadow,
                     Some(GbShell::Rounded) => self.gbc_shadow,
@@ -422,7 +430,7 @@ impl Shelf {
                 }
             });
             if let Some(tex) = self.favorite_face.filter(|_| self.is_favorite(cart)) {
-                let (cx, cy) = badge_centre(self.shells.get(i).copied().flatten());
+                let (cx, cy) = badge_centre(self.shell(i));
                 let d = FAVORITE_D * scale;
                 out.push(Draw::Tex {
                     x: x + cx * scale - d / 2.0,
