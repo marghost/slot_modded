@@ -17,6 +17,42 @@ pub const FF_SPEED_DEFAULT: u8 = 6;
 
 pub const RUN_AHEAD_MAX: u8 = 1;
 
+/// Which picture frames a Game Boy or Game Boy Color screen. `None` is the
+/// plain picture, and the default.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub enum BezelPick {
+    #[default]
+    None,
+    File(String),
+}
+
+impl BezelPick {
+    pub fn key(&self) -> String {
+        match self {
+            BezelPick::None => "none".to_string(),
+            BezelPick::File(name) => name.clone(),
+        }
+    }
+
+    pub fn label(&self) -> String {
+        match self {
+            BezelPick::None => "None".to_string(),
+            BezelPick::File(name) => name
+                .rsplit_once('.')
+                .map(|(stem, _)| stem)
+                .unwrap_or(name)
+                .to_string(),
+        }
+    }
+
+    pub fn parse(value: &str) -> BezelPick {
+        match value {
+            "" | "none" => BezelPick::None,
+            other => BezelPick::File(other.to_string()),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SlotState {
     pub cart: Option<String>,
@@ -44,6 +80,8 @@ pub struct SlotState {
     pub gb_palettes: bool,
     pub gb_palette: GbPalette,
     pub startup_screen: StartupScreen,
+    pub bezel_gb: BezelPick,
+    pub bezel_gbc: BezelPick,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -167,6 +205,8 @@ impl Default for SlotState {
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
             startup_screen: StartupScreen::Gba,
+            bezel_gb: BezelPick::None,
+            bezel_gbc: BezelPick::None,
         }
     }
 }
@@ -185,7 +225,37 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nshelf_gba={}\nshelf_gb={}\nshelf_gbc={}\nshelf_favorites={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\nff_pitch={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\nstartup_screen={}\n",
+        "cart={}
+cart_platform={}
+shelf_gba={}
+shelf_gb={}
+shelf_gbc={}
+shelf_favorites={}
+brightness={}
+blue_light={}
+volume={}
+volume_hp={}
+muted={}
+muted_hp={}
+clock_set={}
+utc_offset_min={}
+rumble={}
+ff_speed={}
+ff_sound={}
+ff_pitch={}
+colour_correction={}
+shader_gba={}
+shader_gb={}
+eject_save={}
+turbo={}
+rewind={}
+runahead={}
+gb_palettes={}
+gb_palette={}
+startup_screen={}
+bezel_gb={}
+bezel_gbc={}
+",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.shelf_marks[0].as_deref().unwrap_or(""),
@@ -213,7 +283,9 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.runahead,
         s.gb_palettes as u8,
         s.gb_palette.core_name(),
-        s.startup_screen.name()
+        s.startup_screen.name(),
+        s.bezel_gb.key(),
+        s.bezel_gbc.key()
     );
     atomic_write(&state_path(root), text.as_bytes())
 }
@@ -244,6 +316,8 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut gb_palettes = None;
     let mut gb_palette = None;
     let mut startup_screen = None;
+    let mut bezel_gb = None;
+    let mut bezel_gbc = None;
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -276,6 +350,8 @@ fn parse(text: &str) -> Option<SlotState> {
             "gb_palettes" => gb_palettes = flag(value),
             "gb_palette" => gb_palette = GbPalette::parse(value),
             "startup_screen" => startup_screen = StartupScreen::parse(value),
+            "bezel_gb" => bezel_gb = Some(BezelPick::parse(value)),
+            "bezel_gbc" => bezel_gbc = Some(BezelPick::parse(value)),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
         }
@@ -308,6 +384,8 @@ fn parse(text: &str) -> Option<SlotState> {
         gb_palettes: gb_palettes.unwrap_or(fallback.gb_palettes),
         gb_palette: gb_palette.unwrap_or(fallback.gb_palette),
         startup_screen: startup_screen.unwrap_or(fallback.startup_screen),
+        bezel_gb: bezel_gb.unwrap_or(fallback.bezel_gb),
+        bezel_gbc: bezel_gbc.unwrap_or(fallback.bezel_gbc),
     })
 }
 

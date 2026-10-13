@@ -10,6 +10,7 @@ mod clock;
 mod draw;
 mod favorite;
 mod footer;
+mod game_bezel;
 mod hud;
 mod icon;
 mod link_art;
@@ -52,6 +53,7 @@ pub use clock::{clock_label, date_time_text, hhmm, set_clock_hint_face, ClockPic
 pub use draw::{Draw, TexId, OUT_H, OUT_W};
 pub use favorite::{favorite_face, favorite_heart_face, FAVORITE_D, FAVORITE_FILE, FAVORITE_PX};
 pub use footer::{draw_footer, Printed};
+pub use game_bezel::{game_bezel_face, GameBezelFace};
 pub use hud::{
     badge_at, ff_badge, FfState, Hud, HudKind, LinkBadge, Millis, ALARM_BAND_H, HUD_ICON_PX,
     HUD_INK, HUD_MS, LINK_HOST_INK, LINK_JOIN_INK, PLATE_H,

@@ -110,7 +110,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "GBA Shader",
             "GB / GBC Shader",
             "Color Correction",
-            "GB Palettes"
+            "GB Palettes",
+            "BEZELS"
         ]
     );
     assert_eq!(
@@ -134,13 +135,15 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::DateTime,
             QuickRow::About,
             QuickRow::Game,
-            QuickRow::CheatSheet
+            QuickRow::CheatSheet,
+            QuickRow::Bezels
         ]
     );
     for page in [
         &QuickRow::MAIN[..],
         &QuickRow::SCREEN[..],
         &QuickRow::GAME[..],
+        &QuickRow::BEZELS[..],
     ] {
         for &row in page {
             assert_eq!(row.page(), page, "{row:?}");

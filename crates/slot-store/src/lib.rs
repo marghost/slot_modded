@@ -27,7 +27,7 @@ pub use platform::Platform;
 pub use ring::{StateEntry, StateRing, RING_MAX};
 pub use scan::{initial, is_hidden, listing, scan, sort_key, Cart, StoreError};
 pub use slot_state::{
-    read_slot_state, write_slot_state, Shader, SlotState, StartupScreen, BLUE_LIGHT_MAX,
+    read_slot_state, write_slot_state, BezelPick, Shader, SlotState, StartupScreen, BLUE_LIGHT_MAX,
     BRIGHTNESS_MAX, FF_SPEEDS, FF_SPEED_DEFAULT, RUN_AHEAD_MAX, UTC_OFFSET_MAX, UTC_OFFSET_MIN,
     VOLUME_MAX,
 };

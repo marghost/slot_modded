@@ -2,8 +2,8 @@ mod common;
 
 use common::tmp_root;
 use slot_store::{
-    atomic_write, read_slot_state, write_slot_state, GbPalette, Platform, Shader, SlotState,
-    StartupScreen, FF_SPEEDS, FF_SPEED_DEFAULT,
+    atomic_write, read_slot_state, write_slot_state, BezelPick, GbPalette, Platform, Shader,
+    SlotState, StartupScreen, FF_SPEEDS, FF_SPEED_DEFAULT,
 };
 use tempfile::tempdir;
 
@@ -207,6 +207,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
             startup_screen: StartupScreen::Gba,
+            bezel_gb: BezelPick::None,
+            bezel_gbc: BezelPick::None,
         }
     );
 }
