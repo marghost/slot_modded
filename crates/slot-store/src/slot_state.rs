@@ -42,6 +42,7 @@ pub struct SlotState {
     pub runahead: u8,
     pub gb_palettes: bool,
     pub gb_palette: GbPalette,
+    pub startup_screen: StartupScreen,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -90,6 +91,53 @@ impl Shader {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum StartupScreen {
+    #[default]
+    Gba,
+    Gb,
+    Gbc,
+    Favorites,
+    Recents,
+}
+
+impl StartupScreen {
+    pub const ALL: [StartupScreen; 5] = [
+        StartupScreen::Gba,
+        StartupScreen::Gb,
+        StartupScreen::Gbc,
+        StartupScreen::Favorites,
+        StartupScreen::Recents,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            StartupScreen::Gba => "gba",
+            StartupScreen::Gb => "gb",
+            StartupScreen::Gbc => "gbc",
+            StartupScreen::Favorites => "favorites",
+            StartupScreen::Recents => "recents",
+        }
+    }
+
+    pub fn parse(name: &str) -> Option<StartupScreen> {
+        StartupScreen::ALL.into_iter().find(|s| s.name() == name)
+    }
+
+    pub fn step(self, right: bool) -> StartupScreen {
+        let n = StartupScreen::ALL.len();
+        let at = StartupScreen::ALL
+            .iter()
+            .position(|&s| s == self)
+            .unwrap_or(0);
+        StartupScreen::ALL[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+    }
+}
+
 impl Default for SlotState {
     fn default() -> Self {
         SlotState {
@@ -116,6 +164,7 @@ impl Default for SlotState {
             runahead: 0,
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
+            startup_screen: StartupScreen::Gba,
         }
     }
 }
@@ -134,7 +183,7 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\nff_pitch={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\n",
+        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\nff_pitch={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\nstartup_screen={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
@@ -157,7 +206,8 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.rewind as u8,
         s.runahead,
         s.gb_palettes as u8,
-        s.gb_palette.core_name()
+        s.gb_palette.core_name(),
+        s.startup_screen.name()
     );
     atomic_write(&state_path(root), text.as_bytes())
 }
@@ -186,6 +236,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut runahead = None;
     let mut gb_palettes = None;
     let mut gb_palette = None;
+    let mut startup_screen = None;
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -213,6 +264,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "runahead" => runahead = level(value, RUN_AHEAD_MAX),
             "gb_palettes" => gb_palettes = flag(value),
             "gb_palette" => gb_palette = GbPalette::parse(value),
+            "startup_screen" => startup_screen = StartupScreen::parse(value),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
         }
@@ -243,6 +295,7 @@ fn parse(text: &str) -> Option<SlotState> {
         runahead: runahead.unwrap_or(fallback.runahead),
         gb_palettes: gb_palettes.unwrap_or(fallback.gb_palettes),
         gb_palette: gb_palette.unwrap_or(fallback.gb_palette),
+        startup_screen: startup_screen.unwrap_or(fallback.startup_screen),
     })
 }
 

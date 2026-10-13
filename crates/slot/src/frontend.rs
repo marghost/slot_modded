@@ -8,12 +8,12 @@ use slot_power::{Battery, Platform, Power};
 use slot_store::format_stamp;
 use slot_ui::{
     arrows_hint_face, badge_face, battery_badge_face, bezel_face, cart_shadow, cheat_sheet_face,
-    chip_face, chip_shadow_face, date_time_text, gb_cart_shadow, hhmm, hint_face, icon_face,
-    menu_face, photo_face, quick_caret_face, quick_label_face, quick_legend_faces, quick_mark_face,
-    quick_value_face, rebuild_count_face, rebuild_title_face, set_clock_hint_face, socket_face,
-    sticker_face, title_face, toast_face, wallpaper_face, word_face, CartFace, GbShell, Icon,
-    LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue, RebuildScreen, StickerFields,
-    Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
+    chip_face, chip_shadow_face, date_time_text, favorite_face, gb_cart_shadow, hhmm, hint_face,
+    icon_face, menu_face, photo_face, quick_caret_face, quick_label_face, quick_legend_faces,
+    quick_mark_face, quick_value_face, rebuild_count_face, rebuild_title_face, set_clock_hint_face,
+    socket_face, sticker_face, title_face, toast_face, wallpaper_face, word_face, CartFace,
+    GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue, RebuildScreen,
+    StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
 };
 
 use crate::app::{App, LinkRow, Phase};
@@ -215,6 +215,9 @@ impl Frontend {
         let bolt = icon_face(Icon::Charging, BOLT_PX, HUD_INK);
         let bolt_id = compositor.create_texture(bolt.w, bolt.h, &bolt.rgba);
         self.session.app_mut().set_bolt_face(bolt_id);
+        let favorite = favorite_face(self.session.app().root());
+        let favorite = compositor.create_texture(favorite.w, favorite.h, &favorite.rgba);
+        self.session.app_mut().set_favorite_face(favorite);
         crate::boot_time::mark("shelf faces");
         self.upload_wallpaper(compositor);
     }
@@ -820,10 +823,7 @@ fn sync_core_picker(
 ) {
     let highlighted = app.selected_stem().map(str::to_string);
     if highlighted.is_some() && *asked != highlighted {
-        if let Some(cart) = app
-            .carts()
-            .find(|c| highlighted.as_deref() == Some(c.stem.as_str()))
-        {
+        if let Some(cart) = app.selected_cart() {
             builder.request(cart.clone());
         }
         *asked = highlighted.clone();

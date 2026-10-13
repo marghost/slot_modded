@@ -98,6 +98,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         [
             "Screen",
             "Gameplay",
+            "Startup Screen",
             "Date & Time",
             "Button Cheat Sheet",
             "About"
@@ -162,7 +163,12 @@ fn the_values_read_as_the_menu_prints_them() {
             "Grid",
             "Dot",
             "Simpletex",
-            "1 Frame"
+            "1 Frame",
+            "GBA",
+            "GB",
+            "GBC",
+            "Favorites",
+            "Recents"
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

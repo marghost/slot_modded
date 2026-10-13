@@ -3,7 +3,7 @@ mod common;
 use common::tmp_root;
 use slot_store::{
     atomic_write, read_slot_state, write_slot_state, GbPalette, Platform, Shader, SlotState,
-    FF_SPEEDS, FF_SPEED_DEFAULT,
+    StartupScreen, FF_SPEEDS, FF_SPEED_DEFAULT,
 };
 use tempfile::tempdir;
 
@@ -205,6 +205,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             runahead: 0,
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
+            startup_screen: StartupScreen::Gba,
         }
     );
 }
@@ -218,6 +219,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         ff_speed: 2,
         ff_sound: true,
         ff_pitch: true,
+        startup_screen: StartupScreen::Recents,
         colour_correction: true,
         shader_gba: Shader::Dot,
         shader_gb: Shader::Off,
@@ -237,6 +239,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "ff_speed=2",
         "ff_sound=1",
         "ff_pitch=1",
+        "startup_screen=recents",
         "colour_correction=1",
         "shader_gba=dot",
         "shader_gb=off",

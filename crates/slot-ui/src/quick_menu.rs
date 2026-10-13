@@ -23,10 +23,11 @@ pub enum QuickRow {
     CheatSheet,
     RunAhead,
     FastForwardPitch,
+    StartupScreen,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 17] = [
+    pub const ALL: [QuickRow; 18] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -44,11 +45,13 @@ impl QuickRow {
         QuickRow::CheatSheet,
         QuickRow::RunAhead,
         QuickRow::FastForwardPitch,
+        QuickRow::StartupScreen,
     ];
 
-    pub const MAIN: [QuickRow; 5] = [
+    pub const MAIN: [QuickRow; 6] = [
         QuickRow::Screen,
         QuickRow::Game,
+        QuickRow::StartupScreen,
         QuickRow::DateTime,
         QuickRow::CheatSheet,
         QuickRow::About,
@@ -119,6 +122,7 @@ impl QuickRow {
             QuickRow::FastForward => "Fast Forward",
             QuickRow::FastForwardSound => "Fast Forward Sound",
             QuickRow::FastForwardPitch => "Keep FF Pitch",
+            QuickRow::StartupScreen => "Startup Screen",
             QuickRow::Screen => "Screen",
             QuickRow::Rumble => "Rumble",
             QuickRow::DateTime => "Date & Time",
@@ -171,10 +175,15 @@ pub enum QuickValue {
     Dot,
     Simpletex,
     Frames1,
+    Gba,
+    Gb,
+    Gbc,
+    Favorites,
+    Recents,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 11] = [
+    pub const ALL: [QuickValue; 16] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -186,6 +195,11 @@ impl QuickValue {
         QuickValue::Dot,
         QuickValue::Simpletex,
         QuickValue::Frames1,
+        QuickValue::Gba,
+        QuickValue::Gb,
+        QuickValue::Gbc,
+        QuickValue::Favorites,
+        QuickValue::Recents,
     ];
 
     pub fn index(self) -> usize {
@@ -205,6 +219,11 @@ impl QuickValue {
             QuickValue::Dot => "Dot",
             QuickValue::Simpletex => "Simpletex",
             QuickValue::Frames1 => "1 Frame",
+            QuickValue::Gba => "GBA",
+            QuickValue::Gb => "GB",
+            QuickValue::Gbc => "GBC",
+            QuickValue::Favorites => "Favorites",
+            QuickValue::Recents => "Recents",
         }
     }
 

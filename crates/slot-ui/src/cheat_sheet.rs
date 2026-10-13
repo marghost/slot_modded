@@ -14,7 +14,8 @@ pub const CHEAT_PAGES: [CheatPage; 4] = [
         rows: &[
             ("Left / Right", "Browse games"),
             ("Up / Down", "Jump to next letter"),
-            ("L1 / R1", "Switch platform"),
+            ("L1 / R1", "Switch shelf"),
+            ("Y", "Add / remove favorite"),
             ("Tap A", "Resume last state"),
             ("Hold A", "Start game fresh"),
             ("START", "Pick emulator (GBA)"),

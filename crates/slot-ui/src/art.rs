@@ -24,6 +24,68 @@ pub fn cover(path: &Path, w: u32, h: u32) -> Option<Vec<u8>> {
     Some(out)
 }
 
+pub fn sticker(path: &Path, size: u32) -> Option<Vec<u8>> {
+    let (src, sw, sh) = decode(path)?;
+    if sw == 0 || sh == 0 || size == 0 {
+        return None;
+    }
+    let side = sw.max(sh) as f32;
+    let scale = size as f32 / side;
+    let (ox, oy) = ((side - sw as f32) / 2.0, (side - sh as f32) / 2.0);
+    let mut out = vec![0u8; (size * size * 4) as usize];
+    for y in 0..size {
+        for x in 0..size {
+            let x0 = x as f32 / scale - ox;
+            let y0 = y as f32 / scale - oy;
+            let x1 = (x + 1) as f32 / scale - ox;
+            let y1 = (y + 1) as f32 / scale - oy;
+            if x1 <= 0.0 || y1 <= 0.0 || x0 >= sw as f32 || y0 >= sh as f32 {
+                continue;
+            }
+            let px = premultiplied_average(&src, sw, sh, x0, y0, x1, y1);
+            out[((y * size + x) * 4) as usize..][..4].copy_from_slice(&px);
+        }
+    }
+    Some(out)
+}
+
+fn premultiplied_average(
+    src: &[u8],
+    sw: u32,
+    sh: u32,
+    x0: f32,
+    y0: f32,
+    x1: f32,
+    y1: f32,
+) -> [u8; 4] {
+    let xa = (x0.floor().max(0.0) as u32).min(sw - 1);
+    let ya = (y0.floor().max(0.0) as u32).min(sh - 1);
+    let xb = ((x1.ceil().max(0.0) as u32).max(xa + 1)).min(sw);
+    let yb = ((y1.ceil().max(0.0) as u32).max(ya + 1)).min(sh);
+    let mut acc = [0u32; 4];
+    let mut n = 0u32;
+    for y in ya..yb {
+        for x in xa..xb {
+            let i = ((y * sw + x) * 4) as usize;
+            let a = src[i + 3] as u32;
+            for c in 0..3 {
+                acc[c] += src[i + c] as u32 * a;
+            }
+            acc[3] += a;
+            n += 1;
+        }
+    }
+    if acc[3] == 0 {
+        return [0; 4];
+    }
+    [
+        (acc[0] / acc[3]) as u8,
+        (acc[1] / acc[3]) as u8,
+        (acc[2] / acc[3]) as u8,
+        ((acc[3] + n / 2) / n) as u8,
+    ]
+}
+
 fn box_average(src: &[u8], sw: u32, sh: u32, x0: f32, y0: f32, x1: f32, y1: f32) -> [u8; 4] {
     let xa = (x0.floor().max(0.0) as u32).min(sw - 1);
     let ya = (y0.floor().max(0.0) as u32).min(sh - 1);

@@ -1,8 +1,10 @@
 use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
-use slot_store::Cart;
+use slot_store::{Cart, Platform};
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::cart::{cart_box, gb_shell_of, label_colour, label_text, CART_H, CART_W};
+use crate::favorite::FAVORITE_D;
 use crate::hud::Millis;
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
@@ -49,6 +51,8 @@ pub struct Shelf {
     pub index: usize,
     pub scroll: f32,
     faces: Vec<Option<TexId>>,
+    favorites: HashSet<(Platform, String)>,
+    favorite_face: Option<TexId>,
     shadow: Option<TexId>,
     gb_shadow: Option<TexId>,
     gbc_shadow: Option<TexId>,
@@ -63,6 +67,8 @@ impl Shelf {
         Shelf {
             shells: carts.iter().map(gb_shell_of).collect(),
             faces: vec![None; carts.len()],
+            favorites: HashSet::new(),
+            favorite_face: None,
             carts,
             index: 0,
             scroll: 0.0,
@@ -73,6 +79,43 @@ impl Shelf {
             vel: 0.0,
             held: None,
         }
+    }
+
+    pub fn set_favorites(&mut self, favorites: HashSet<(Platform, String)>) {
+        self.favorites = favorites;
+    }
+
+    pub fn set_favorite_face(&mut self, face: TexId) {
+        self.favorite_face = Some(face);
+    }
+
+    pub fn is_favorite(&self, cart: &Cart) -> bool {
+        self.favorites.contains(&(cart.platform, cart.stem.clone()))
+    }
+
+    pub fn replace_carts(&mut self, carts: Vec<Cart>) -> Vec<TexId> {
+        let selected = self
+            .carts
+            .get(self.index)
+            .map(|c| (c.platform, c.stem.clone()));
+        let mut faces: HashMap<(Platform, String), TexId> = self
+            .carts
+            .iter()
+            .zip(self.faces.drain(..))
+            .filter_map(|(c, face)| face.map(|f| ((c.platform, c.stem.clone()), f)))
+            .collect();
+        self.faces = carts
+            .iter()
+            .map(|c| faces.remove(&(c.platform, c.stem.clone())))
+            .collect();
+        self.shells = carts.iter().map(gb_shell_of).collect();
+        let index = selected
+            .and_then(|(p, stem)| carts.iter().position(|c| c.platform == p && c.stem == stem))
+            .unwrap_or(self.index.min(carts.len().saturating_sub(1)));
+        self.carts = carts;
+        self.release_hold();
+        self.select(index);
+        faces.into_values().collect()
     }
 
     pub fn select(&mut self, i: usize) {
@@ -131,7 +174,10 @@ impl Shelf {
     }
 
     pub fn find(&self, stem: &str) -> Option<(&Cart, Option<TexId>)> {
-        let i = self.carts.iter().position(|c| c.stem == stem)?;
+        let i = match self.carts.get(self.index) {
+            Some(c) if c.stem == stem => self.index,
+            _ => self.carts.iter().position(|c| c.stem == stem)?,
+        };
         Some((&self.carts[i], self.face(i)))
     }
 
@@ -317,7 +363,7 @@ impl Shelf {
                 continue;
             };
             let cart = &self.carts[i];
-            if hidden == Some(cart.stem.as_str()) {
+            if i == self.index && hidden == Some(cart.stem.as_str()) {
                 continue;
             }
             let offset = target + slot as f32 - self.scroll;
@@ -375,7 +421,31 @@ impl Shelf {
                     }
                 }
             });
+            if let Some(tex) = self.favorite_face.filter(|_| self.is_favorite(cart)) {
+                let (cx, cy) = badge_centre(self.shells.get(i).copied().flatten());
+                let d = FAVORITE_D * scale;
+                out.push(Draw::Tex {
+                    x: x + cx * scale - d / 2.0,
+                    y: y + cy * scale - d / 2.0,
+                    w: d,
+                    h: d,
+                    tex,
+                    alpha: alpha * dim,
+                });
+            }
         }
+    }
+}
+
+const GBA_BADGE: (f32, f32) = (30.0, 23.0);
+const GB_BADGE: (f32, f32) = (30.5, 22.5);
+const GBC_BADGE: (f32, f32) = (33.5, 25.5);
+
+fn badge_centre(shell: Option<GbShell>) -> (f32, f32) {
+    match shell {
+        None => GBA_BADGE,
+        Some(GbShell::Notched) => GB_BADGE,
+        Some(GbShell::Rounded) => GBC_BADGE,
     }
 }
 
