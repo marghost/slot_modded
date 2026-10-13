@@ -21,6 +21,7 @@ pub const RUN_AHEAD_MAX: u8 = 1;
 pub struct SlotState {
     pub cart: Option<String>,
     pub cart_platform: Option<Platform>,
+    pub shelf_marks: [Option<String>; 4],
     pub brightness: u8,
     pub blue_light: u8,
     pub volume: u8,
@@ -143,6 +144,7 @@ impl Default for SlotState {
         SlotState {
             cart: None,
             cart_platform: None,
+            shelf_marks: Default::default(),
             brightness: 5,
             blue_light: 0,
             volume: 60,
@@ -183,9 +185,13 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\nff_pitch={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\nstartup_screen={}\n",
+        "cart={}\ncart_platform={}\nshelf_gba={}\nshelf_gb={}\nshelf_gbc={}\nshelf_favorites={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\nff_pitch={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\nstartup_screen={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
+        s.shelf_marks[0].as_deref().unwrap_or(""),
+        s.shelf_marks[1].as_deref().unwrap_or(""),
+        s.shelf_marks[2].as_deref().unwrap_or(""),
+        s.shelf_marks[3].as_deref().unwrap_or(""),
         s.brightness,
         s.blue_light,
         s.volume,
@@ -215,6 +221,7 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
 fn parse(text: &str) -> Option<SlotState> {
     let mut cart = None;
     let mut cart_platform = None;
+    let mut shelf_marks: [Option<String>; 4] = Default::default();
     let mut brightness = None;
     let mut blue_light = None;
     let mut volume = None;
@@ -244,6 +251,10 @@ fn parse(text: &str) -> Option<SlotState> {
         match key {
             "cart" => cart = Some(value.to_string()),
             "cart_platform" => cart_platform = platform_value(value),
+            "shelf_gba" => shelf_marks[0] = mark(value),
+            "shelf_gb" => shelf_marks[1] = mark(value),
+            "shelf_gbc" => shelf_marks[2] = mark(value),
+            "shelf_favorites" => shelf_marks[3] = mark(value),
             "brightness" => brightness = Some(level(value, BRIGHTNESS_MAX)?),
             "blue_light" => blue_light = Some(level(value, BLUE_LIGHT_MAX)?),
             "volume" => volume = Some(level(value, VOLUME_MAX)?),
@@ -274,6 +285,7 @@ fn parse(text: &str) -> Option<SlotState> {
     Some(SlotState {
         cart: (!cart.is_empty()).then_some(cart),
         cart_platform,
+        shelf_marks,
         brightness: brightness?,
         blue_light: blue_light?,
         volume: volume?,
@@ -322,6 +334,10 @@ fn ff_speed_value(value: &str) -> Option<u8> {
 
 fn level(value: &str, max: u8) -> Option<u8> {
     value.parse().ok().filter(|n| *n <= max)
+}
+
+fn mark(value: &str) -> Option<String> {
+    (!value.is_empty()).then(|| value.to_string())
 }
 
 fn flag(value: &str) -> Option<bool> {

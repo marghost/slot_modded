@@ -546,6 +546,7 @@ impl App {
     }
 
     fn start(&mut self) {
+        self.restore_shelves();
         let seated = if self.single_cart() {
             Some((self.shelf_at, 0))
         } else {
@@ -605,6 +606,35 @@ impl App {
         let first = self.shelf_at;
         self.shelf_at = at;
         self.shelf_at = self.next_shelf(1).unwrap_or(first);
+    }
+
+    fn restore_shelves(&mut self) {
+        for (kind, shelf) in &mut self.shelves {
+            let Some(mark) = mark_slot(*kind).and_then(|at| self.state.shelf_marks[at].as_deref())
+            else {
+                continue;
+            };
+            if let Some(i) = shelf.carts.iter().position(|c| mark_of(c) == mark) {
+                shelf.select(i);
+            }
+        }
+    }
+
+    fn remember_shelves(&mut self) {
+        let mut changed = false;
+        for (kind, shelf) in &self.shelves {
+            let (Some(at), Some(cart)) = (mark_slot(*kind), shelf.carts.get(shelf.index)) else {
+                continue;
+            };
+            let mark = Some(mark_of(cart));
+            if self.state.shelf_marks[at] != mark {
+                self.state.shelf_marks[at] = mark;
+                changed = true;
+            }
+        }
+        if changed {
+            self.persist();
+        }
     }
 
     fn shelf_of(&self, kind: ShelfKind) -> usize {
@@ -717,6 +747,7 @@ impl App {
         let Some(to) = self.next_shelf(by) else {
             return;
         };
+        self.remember_shelves();
         self.shelf_mut().release_hold();
         self.play_held = None;
         self.shelf_at = to;
@@ -1590,6 +1621,7 @@ impl App {
     }
 
     fn open_quick_menu(&mut self) {
+        self.remember_shelves();
         self.phase = Phase::QuickMenu {
             row: QuickRow::MAIN[0],
         };
@@ -2767,6 +2799,7 @@ impl App {
             return;
         };
         self.share_header(&read);
+        self.remember_shelves();
         let cart = read.stem;
         eprintln!(
             "slot: launch: insert {cart} at {:.1} ms",
@@ -2872,6 +2905,7 @@ impl App {
         if matches!(self.phase, Phase::Doze { .. }) {
             return;
         }
+        self.remember_shelves();
         self.state_writer.flush();
         self.flush_resume();
         let cart = match &mut self.phase {
@@ -2925,6 +2959,7 @@ impl App {
             return self.refuse();
         }
         self.flush_resume();
+        self.remember_shelves();
         self.power_menu = Some(0);
     }
 
@@ -3316,6 +3351,7 @@ impl App {
             self.end_link();
         }
         self.close_game_menu();
+        self.remember_shelves();
         self.powering_off = true;
         self.act_at = self.now() + SHUTDOWN_SHOW_MS;
         self.set_led(LedState::Off);
@@ -3732,6 +3768,24 @@ fn trusted_write(
 
 fn up(level: u8, step: u8, max: u8) -> u8 {
     level.saturating_add(step).min(max)
+}
+
+fn mark_slot(kind: ShelfKind) -> Option<usize> {
+    match kind {
+        ShelfKind::Platform(Platform::Gba) => Some(0),
+        ShelfKind::Platform(Platform::Gb) => Some(1),
+        ShelfKind::Platform(Platform::Gbc) => Some(2),
+        ShelfKind::Favorites => Some(3),
+        ShelfKind::Recents => None,
+    }
+}
+
+fn mark_of(cart: &Cart) -> String {
+    format!(
+        "{}/{}",
+        cart.platform.dir_name().to_ascii_lowercase(),
+        cart.stem
+    )
 }
 
 fn startup_value(shelf: StartupScreen) -> QuickValue {

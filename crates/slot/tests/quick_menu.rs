@@ -351,6 +351,8 @@ fn colour_correction_leaves_the_settings_around_it_alone() {
 #[test]
 fn the_arrows_change_nothing_on_a_row_that_opens() {
     let (d, mut a, _) = on_carousel();
+    a.apply(Action::QuickMenu);
+    a.apply(Action::QuickMenu);
     let before = std::fs::read(d.path().join("Config/slot.state")).expect("read slot.state");
     for row in [QuickRow::DateTime, QuickRow::CheatSheet, QuickRow::About] {
         open_at(&mut a, row);

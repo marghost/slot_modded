@@ -184,6 +184,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
         SlotState {
             cart: Some("Emerald".into()),
             cart_platform: None,
+            shelf_marks: Default::default(),
             brightness: 3,
             blue_light: 1,
             volume: 40,
@@ -439,4 +440,30 @@ fn a_missing_or_unknown_palette_falls_back_to_dmg_green() {
         assert!(!s.gb_palettes, "{bad:?} turned palettes on");
         assert_eq!(s.gb_palette, GbPalette::DEFAULT, "{bad:?}");
     }
+}
+
+#[test]
+fn each_shelf_keeps_the_game_it_was_left_on() {
+    let d = tmp_root();
+    let s = SlotState {
+        clock_set: true,
+        shelf_marks: [
+            Some("gba/Emerald".into()),
+            None,
+            Some("gbc/Pokemon Crystal".into()),
+            Some("gb/Tetris".into()),
+        ],
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &s).unwrap();
+    let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+    for line in [
+        "shelf_gba=gba/Emerald",
+        "shelf_gb=",
+        "shelf_gbc=gbc/Pokemon Crystal",
+        "shelf_favorites=gb/Tetris",
+    ] {
+        assert!(text.lines().any(|l| l == line), "no {line} in {text:?}");
+    }
+    assert_eq!(read_slot_state(d.path()), s);
 }
