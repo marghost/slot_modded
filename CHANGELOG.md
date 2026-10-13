@@ -1,5 +1,31 @@
 # Changelog
 
+## [v1.6.0-mod.2](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.2) (marghost fork)
+
+Changes made in this fork since v1.6.0-mod.1 (2026-10-13). Written by Claude Opus (AI), see the
+[Fork AI Disclosure](README.md#fork-ai-disclosure):
+
+- Favorites: Y on the shelf adds or removes the selected game, and a pixel heart on the cart marks it on every shelf. A
+  Favorites shelf after GBC (L1/R1) lists them A to Z, GBA, GB and GBC together; Y there removes a game. They are kept
+  in `Config/favourites.txt`. The heart is `System/favorite.png`: put your own PNG there, or remove it for the built-in
+  heart. (Adapted from [slot.advance](https://github.com/suprsomething/slot.advance) by suprsomething and
+  [jgraving/slot](https://github.com/jgraving/slot) by jgraving.)
+- Recents: a Recents shelf after Favorites holds the last 10 games started, newest first, and opens on the game just
+  played. Kept in `Config/recents.txt`. (Adapted from slot.advance and jgraving/slot.)
+- Startup Screen on the main settings page: the shelf slot opens on, GBA (default), GB, GBC, Favorites or Recents. An
+  empty choice opens the next shelf with games. A game left in the slot still resumes at boot, and ejecting it goes back
+  to the startup shelf when the game is on it.
+- Keep FF Pitch on the Gameplay page: with Fast Forward Sound on, fast-forward sound keeps its normal pitch instead of
+  going higher. (Adapted from [snowslots](https://github.com/chiyuki0325/snowslots) by chiyuki0325.)
+- A "Battery Low" banner at 15% and again at 10%, once per discharge; charging resets both. (Adapted from slot.advance.)
+- Standby: while the lid is shut, or after a tap of POWER, slot stops drawing until it wakes, to use less battery. The
+  3-minute power-off is unchanged. (Adapted from slot.advance.)
+- Settings pages with more than six rows scroll, and ▲ ▼ show when there are more rows above or below.
+- A new boot logo: "slot." with "_modded" under it.
+- The Button Cheat Sheet's carousel page lists Y (add / remove favorite), and L1/R1 now switch shelf.
+- Includes the original slot's latest changes, not in a slot release yet: a 1 frame Run-Ahead setting for GBA games on
+  mGBA, brightness steps on a curve so the lowest steps are dimmer, and steady frame rate while the sound is muted.
+
 ## [v1.6.0-mod.1](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.1) (marghost fork)
 
 Changes made in this fork, on top of slot 1.6.0 (2026-10-12). Written by Claude Opus (AI), see the

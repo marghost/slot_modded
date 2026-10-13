@@ -15,6 +15,11 @@
 An **unofficial fork** of [slot](https://github.com/BrandonKowalski/slot) by Brandon Kowalski, who deserves all the
 credit. Not affiliated with or endorsed by him: please report this fork's problems here. Same license, GPL-3.0-or-later.
 
+Some features are adapted from other slot forks: [slot.advance](https://github.com/suprsomething/slot.advance) by
+suprsomething (battery warnings, standby, favorites), [snowslots](https://github.com/chiyuki0325/snowslots) by
+chiyuki0325 (fast-forward pitch) and [jgraving/slot](https://github.com/jgraving/slot) by jgraving (favorites and
+recents). Thank you!
+
 [User guide](https://slot-cfw.fyi) · [Changelog](CHANGELOG.md)
 
 # What's new
@@ -24,6 +29,14 @@ credit. Not affiliated with or endorsed by him: please report this fork's proble
 | **Battery %** in game | Always on, bottom-right of the bezel (4:3 screens like the RG35XXSP). Green → red as it drains. |
 | **Button Cheat Sheet** | Settings: MENU → **Button Cheat Sheet** |
 | **Button Cheat Sheet** in game | Save state switcher: double-tap MENU → **START** |
+| **Favorites** | On the shelf, **Y** adds or removes a game; a heart marks it. **R1** past GBC opens the Favorites shelf. Your own sticker: put a PNG at `System/favorite.png`. |
+| **Recents** | **R1** to the Recents shelf: your last 10 games, newest first |
+| **Startup Screen** | Settings: MENU → **Startup Screen** (GBA, GB, GBC, Favorites or Recents) |
+| **Keep FF Pitch** | Settings: MENU → Gameplay → **Keep FF Pitch**, with Fast Forward Sound on |
+| **Low-battery warning** | Automatic, at 15% and 10% |
+| **Standby** | Automatic: with the lid shut, slot stops drawing to save battery |
+| **Scrolling settings** | Long settings pages scroll; ▲ ▼ show there is more |
+| **slot._modded boot logo** | In the release; with the quick option, see step 5 below |
 
 # Try this fork on your device
 
@@ -38,7 +51,10 @@ For a handheld that already runs slot OS. Your games, saves and states stay as t
 2. Turn the handheld off and put slot's SD card in your computer.
 3. In the card's `System` folder, rename the original `slot` file to `slot.orig`. That keeps it as a backup.
 4. Copy the downloaded `slot` into the card's `System` folder.
-5. Eject the card safely, put it back in the handheld and turn it on.
+5. Optional, for the slot._modded boot logo: download
+   [`bootlogo.bmp`](https://github.com/marghost/slot_modded/releases/latest/download/bootlogo.bmp) and copy it over
+   `System/bootlogo.bmp`. It shows from the second start.
+6. Eject the card safely, put it back in the handheld and turn it on.
 
 To go back to the original slot, delete `System/slot` and rename `System/slot.orig` back to `slot`.
 
@@ -62,8 +78,23 @@ short:
 # Screenshots
 
 <p align="center">
-<img src=".github/resources/screenshots/fork-settings-cheat-sheet.png" width="60%" alt="The settings menu with the new Button Cheat Sheet row between Date & Time and About"><br>
-<em>The settings menu, with the new Button Cheat Sheet entry.</em>
+<img src=".github/resources/screenshots/fork-favorite-page.png" width="60%" alt="The Favorites shelf: a pixel heart on the top-left corner of a GBA, a GB and a GBC cart, and FAVORITES on the slot"><br>
+<em>The Favorites shelf, with a heart on each favorite.</em>
+</p>
+
+<p align="center">
+<img src=".github/resources/screenshots/fork-recent-page.png" width="60%" alt="The Recents shelf: the last game played in the middle, with its heart, and RECENTS on the slot"><br>
+<em>The Recents shelf: your last games, newest first.</em>
+</p>
+
+<p align="center">
+<img src=".github/resources/screenshots/fork-settings-cheat-sheet.png" width="60%" alt="The settings menu with the new Startup Screen row set to Favorites, and the Button Cheat Sheet row selected"><br>
+<em>The settings menu, with Startup Screen and the Button Cheat Sheet.</em>
+</p>
+
+<p align="center">
+<img src=".github/resources/screenshots/fork-keep-ff-pitch.png" width="60%" alt="The Gameplay settings page: Keep FF Pitch selected under Fast Forward Sound, Run-Ahead, and a down arrow under the last visible row"><br>
+<em>The Gameplay page: Keep FF Pitch, and ▼ when more settings are below.</em>
 </p>
 
 <p align="center">
