@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 use slot::frontend::Frontend;
 use slot::input::DeviceInput;
+use slot::standby::{Standby, Step, STANDBY_REST};
 use slot_gfx::{Compositor, FbdevSurface, Surface};
 use slot_power::{trace_first_frame, DevicePlatform};
 
@@ -60,6 +61,10 @@ impl Pacer {
         self.work = self.works.iter().copied().max().unwrap_or(work);
         self.last_return = Some(now);
         missed
+    }
+
+    fn resume(&mut self) {
+        self.last_return = None;
     }
 }
 
@@ -131,7 +136,23 @@ pub fn run() {
     frontend.drive_emulator();
     let mut pacer = Pacer::new();
     let (mut frames, mut missed, mut early) = (0u32, 0u32, 0u32);
+    let mut standby = Standby::new();
     loop {
+        if standby.step(frontend.standing_by()) == Step::Rest {
+            std::thread::sleep(STANDBY_REST);
+            frontend.advance(&mut input);
+            if frontend.restarting() {
+                frontend.restart();
+            }
+            if frontend.powering_off() {
+                frontend.poweroff();
+                return;
+            }
+            if !frontend.standing_by() {
+                pacer.resume();
+            }
+            continue;
+        }
         pacer.wait();
         let began = Instant::now();
         frontend.advance(&mut input);

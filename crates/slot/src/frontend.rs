@@ -530,6 +530,10 @@ impl Frontend {
         self.start.elapsed().as_millis() as Millis
     }
 
+    pub fn standing_by(&self) -> bool {
+        self.rebuild.is_none() && self.session.app().standing_by()
+    }
+
     pub fn powering_off(&self) -> bool {
         self.session.app().ready_to_power_off()
     }

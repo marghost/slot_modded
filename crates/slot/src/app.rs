@@ -1100,6 +1100,10 @@ impl App {
         self.restarting && self.now() >= self.act_at
     }
 
+    pub fn standing_by(&self) -> bool {
+        matches!(self.phase, Phase::Doze { .. }) && !self.shutting_down()
+    }
+
     pub fn shutting_down(&self) -> bool {
         self.powering_off || self.restarting
     }
