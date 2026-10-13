@@ -157,3 +157,18 @@ fn a_config_logo_that_is_not_a_24_bit_bmp_falls_back_to_the_shipped_one() {
     let card = card_with(&[(CARD_LOGO, &shipped), (USER_LOGO, b"not a bmp")]);
     assert_eq!(chosen(card.path()), Some(shipped));
 }
+
+#[test]
+fn the_card_logo_fits_every_supported_panel_on_its_own_background() {
+    let bytes = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../card/System/bootlogo.bmp"
+    ))
+    .unwrap();
+    let logo = decode(&bytes).expect("the card logo is a 24-bit bmp");
+    assert_eq!(logo.rgb[0], BG, "the top-left pixel fills the screen");
+    for panel in [(640, 480), (720, 480), (480, 640)] {
+        let composed = compose(&logo, panel).unwrap_or_else(|| panic!("refused on {panel:?}"));
+        assert_eq!((composed.width, composed.height), panel);
+    }
+}
