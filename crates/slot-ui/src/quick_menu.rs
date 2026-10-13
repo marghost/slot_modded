@@ -22,10 +22,11 @@ pub enum QuickRow {
     GbPalettes,
     CheatSheet,
     RunAhead,
+    FastForwardPitch,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 16] = [
+    pub const ALL: [QuickRow; 17] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -42,6 +43,7 @@ impl QuickRow {
         QuickRow::GbPalettes,
         QuickRow::CheatSheet,
         QuickRow::RunAhead,
+        QuickRow::FastForwardPitch,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -59,9 +61,10 @@ impl QuickRow {
         QuickRow::GbPalettes,
     ];
 
-    pub const GAME: [QuickRow; 7] = [
+    pub const GAME: [QuickRow; 8] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
+        QuickRow::FastForwardPitch,
         QuickRow::Rewind,
         QuickRow::RunAhead,
         QuickRow::Turbo,
@@ -81,6 +84,7 @@ impl QuickRow {
             | QuickRow::GbPalettes => &QuickRow::SCREEN,
             QuickRow::FastForward
             | QuickRow::FastForwardSound
+            | QuickRow::FastForwardPitch
             | QuickRow::Rewind
             | QuickRow::RunAhead
             | QuickRow::Turbo
@@ -114,6 +118,7 @@ impl QuickRow {
         match self {
             QuickRow::FastForward => "Fast Forward",
             QuickRow::FastForwardSound => "Fast Forward Sound",
+            QuickRow::FastForwardPitch => "Keep FF Pitch",
             QuickRow::Screen => "Screen",
             QuickRow::Rumble => "Rumble",
             QuickRow::DateTime => "Date & Time",

@@ -672,6 +672,7 @@ impl App {
         match row {
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
+            QuickRow::FastForwardPitch => Some(QuickValue::flag(self.state.ff_pitch)),
             QuickRow::ColourCorrection => Some(QuickValue::flag(self.state.colour_correction)),
             QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_palettes)),
             QuickRow::GbaShader => Some(shader_value(self.state.shader_gba)),
@@ -1077,6 +1078,10 @@ impl App {
         self.state.ff_sound
     }
 
+    pub fn ff_pitch(&self) -> bool {
+        self.state.ff_pitch
+    }
+
     pub fn runahead(&self) -> u8 {
         self.state.runahead
     }
@@ -1434,6 +1439,7 @@ impl App {
             | QuickRow::Rewind
             | QuickRow::FastForward
             | QuickRow::FastForwardSound
+            | QuickRow::FastForwardPitch
             | QuickRow::ColourCorrection
             | QuickRow::GbaShader
             | QuickRow::GbShader
@@ -1454,6 +1460,7 @@ impl App {
                 s.ff_speed = to;
             }
             QuickRow::FastForwardSound => s.ff_sound = !s.ff_sound,
+            QuickRow::FastForwardPitch => s.ff_pitch = !s.ff_pitch,
             QuickRow::ColourCorrection => {
                 s.colour_correction = !s.colour_correction;
                 self.colour_pending = Some(s.colour_correction);

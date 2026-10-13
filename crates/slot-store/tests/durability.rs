@@ -164,6 +164,7 @@ fn a_first_boot_rumbles_and_fast_forwards_silently_at_the_default() {
     assert!(s.rumble, "boots with the motor off");
     assert_eq!(s.ff_speed, FF_SPEED_DEFAULT);
     assert!(!s.ff_sound, "boots with fast forward audible");
+    assert!(!s.ff_pitch, "boots keeping the fast forward pitch");
     assert!(!s.colour_correction, "boots with the picture tinted");
     assert_eq!(s.shader_gba, Shader::Grid);
     assert_eq!(s.shader_gb, Shader::Simpletex);
@@ -194,6 +195,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             rumble: true,
             ff_speed: FF_SPEED_DEFAULT,
             ff_sound: false,
+            ff_pitch: false,
             colour_correction: false,
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
@@ -215,6 +217,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         rumble: false,
         ff_speed: 2,
         ff_sound: true,
+        ff_pitch: true,
         colour_correction: true,
         shader_gba: Shader::Dot,
         shader_gb: Shader::Off,
@@ -233,6 +236,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "rumble=0",
         "ff_speed=2",
         "ff_sound=1",
+        "ff_pitch=1",
         "colour_correction=1",
         "shader_gba=dot",
         "shader_gb=off",
@@ -314,12 +318,20 @@ fn an_out_of_range_setting_falls_back_to_its_default() {
         "ff_speed=7\n",
         "ff_speed=8\n",
         "ff_speed=255\n",
+        "ff_pitch=2\n",
+        "ff_pitch=on\n",
     ] {
         std::fs::write(d.path().join("Config/slot.state"), format!("{known}{bad}")).unwrap();
         let s = read_slot_state(d.path());
         assert_eq!(
-            (s.rumble, s.ff_speed, s.ff_sound, s.colour_correction),
-            (true, FF_SPEED_DEFAULT, false, false),
+            (
+                s.rumble,
+                s.ff_speed,
+                s.ff_sound,
+                s.ff_pitch,
+                s.colour_correction
+            ),
+            (true, FF_SPEED_DEFAULT, false, false, false),
             "accepted {bad:?}"
         );
         assert_eq!(

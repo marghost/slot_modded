@@ -199,6 +199,23 @@ fn rumble_and_fast_forward_sound_flip_on_either_arrow_and_save() {
 }
 
 #[test]
+fn keep_ff_pitch_sits_under_fast_forward_sound_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::FastForwardSound);
+    press(&mut a, Btn::Down);
+    assert_eq!(a.quick_menu(), Some(QuickRow::FastForwardPitch));
+    assert_eq!(
+        a.quick_value(QuickRow::FastForwardPitch),
+        Some(QuickValue::Off)
+    );
+    press(&mut a, Btn::Right);
+    assert!(read_slot_state(d.path()).ff_pitch);
+    assert!(a.ff_pitch());
+    press(&mut a, Btn::Left);
+    assert!(!read_slot_state(d.path()).ff_pitch);
+}
+
+#[test]
 fn colour_correction_flips_on_either_arrow_and_saves() {
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::ColourCorrection);

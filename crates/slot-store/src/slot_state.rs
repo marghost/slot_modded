@@ -32,6 +32,7 @@ pub struct SlotState {
     pub rumble: bool,
     pub ff_speed: u8,
     pub ff_sound: bool,
+    pub ff_pitch: bool,
     pub colour_correction: bool,
     pub shader_gba: Shader,
     pub shader_gb: Shader,
@@ -105,6 +106,7 @@ impl Default for SlotState {
             rumble: true,
             ff_speed: FF_SPEED_DEFAULT,
             ff_sound: false,
+            ff_pitch: false,
             colour_correction: false,
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
@@ -132,7 +134,7 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\n",
+        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\nff_pitch={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
@@ -146,6 +148,7 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.rumble as u8,
         s.ff_speed,
         s.ff_sound as u8,
+        s.ff_pitch as u8,
         s.colour_correction as u8,
         s.shader_gba.name(),
         s.shader_gb.name(),
@@ -173,6 +176,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut rumble = None;
     let mut ff_speed = None;
     let mut ff_sound = None;
+    let mut ff_pitch = None;
     let mut colour_correction = None;
     let mut shader_gba = None;
     let mut shader_gb = None;
@@ -200,6 +204,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "rumble" => rumble = flag(value),
             "ff_speed" => ff_speed = ff_speed_value(value),
             "ff_sound" => ff_sound = flag(value),
+            "ff_pitch" => ff_pitch = flag(value),
             "colour_correction" => colour_correction = flag(value),
             "shader_gba" => shader_gba = Shader::parse(value).filter(|s| Shader::GBA.contains(s)),
             "eject_save" => eject_save = flag(value),
@@ -228,6 +233,7 @@ fn parse(text: &str) -> Option<SlotState> {
         rumble: rumble.unwrap_or(fallback.rumble),
         ff_speed: ff_speed.unwrap_or(fallback.ff_speed),
         ff_sound: ff_sound.unwrap_or(fallback.ff_sound),
+        ff_pitch: ff_pitch.unwrap_or(fallback.ff_pitch),
         colour_correction: colour_correction.unwrap_or(fallback.colour_correction),
         shader_gba: shader_gba.unwrap_or(fallback.shader_gba),
         shader_gb: shader_gb.unwrap_or(fallback.shader_gb),
