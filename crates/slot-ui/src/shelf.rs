@@ -46,6 +46,9 @@ const SLOTS: i32 = 3;
 
 const REPEAT_DELAY_MS: Millis = 400;
 const REPEAT_MS: [Millis; 4] = [110, 85, 65, 50];
+const FAST_AFTER: usize = 30;
+const FAST_STRIDE: usize = 3;
+const FAST_MIN_CARTS: usize = 60;
 
 pub struct Shelf {
     pub carts: Vec<Cart>,
@@ -299,7 +302,13 @@ impl Shelf {
         if now < due {
             return;
         }
-        self.step(by);
+        let stride = match fired >= FAST_AFTER && self.carts.len() >= FAST_MIN_CARTS {
+            true => FAST_STRIDE,
+            false => 1,
+        };
+        for _ in 0..stride {
+            self.step(by);
+        }
         let rate = REPEAT_MS[fired.min(REPEAT_MS.len() - 1)];
         self.held = Some((by, now + rate, fired + 1));
     }

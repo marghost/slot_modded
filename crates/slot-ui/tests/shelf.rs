@@ -891,3 +891,53 @@ fn a_cart_pushed_onto_the_row_draws_rather_than_stopping_the_device() {
         "the row holding a cart the shells never heard of did not draw both its neighbours"
     );
 }
+
+#[test]
+fn a_long_shelf_held_for_two_seconds_goes_three_carts_a_step() {
+    let mut s = shelf_with(200);
+    s.hold_right(0);
+    let mut at = 400;
+    let mut last = s.index;
+    let mut strides = Vec::new();
+    for _ in 0..40 {
+        s.tick(at);
+        strides.push(s.index - last);
+        last = s.index;
+        at += 110;
+    }
+    assert!(strides[..30].iter().all(|n| *n == 1), "{strides:?}");
+    assert!(strides[30..].iter().all(|n| *n == 3), "{strides:?}");
+}
+
+#[test]
+fn a_short_shelf_never_speeds_up() {
+    let mut s = shelf_with(40);
+    s.hold_right(0);
+    let mut at = 400;
+    for _ in 0..80 {
+        let before = s.index;
+        s.tick(at);
+        assert_eq!((before + 1) % 40, s.index, "a short shelf skipped a cart");
+        at += 110;
+    }
+}
+
+#[test]
+fn letting_go_ends_the_fast_steps() {
+    let mut s = shelf_with(200);
+    s.hold_right(0);
+    let mut at = 400;
+    for _ in 0..40 {
+        s.tick(at);
+        at += 110;
+    }
+    s.release_right();
+    s.hold_right(at);
+    at += 400;
+    for _ in 0..5 {
+        let before = s.index;
+        s.tick(at);
+        assert_eq!(s.index, before + 1, "a new hold kept the fast steps");
+        at += 110;
+    }
+}
