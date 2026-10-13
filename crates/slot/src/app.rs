@@ -50,6 +50,8 @@ const CARD_CHECK_MS: Millis = 2_000;
 
 const BATTERY_CRITICAL: u8 = 5;
 
+const BATTERY_WARNINGS: [(u8, Toast); 2] = [(15, Toast::BatteryLow15), (10, Toast::BatteryLow10)];
+
 const BATTERY_POLL_MS: Millis = 10_000;
 
 const CHARGE_POLL_MS: Millis = 1_000;
@@ -350,6 +352,7 @@ pub struct App {
     headphones: bool,
     headphones_at: Millis,
     battery: Option<Battery>,
+    battery_warned: Option<u8>,
     last_led: Option<LedState>,
     powering_off: bool,
     radio: Box<dyn RadioJobs>,
@@ -477,6 +480,7 @@ impl App {
             headphones: false,
             headphones_at: 0,
             battery: None,
+            battery_warned: None,
             last_led: None,
             powering_off: false,
         }
@@ -3083,6 +3087,7 @@ impl App {
     }
 
     pub fn on_battery(&mut self, b: Battery) {
+        self.warn_battery(b);
         if b.percent > BATTERY_CRITICAL || self.powering_off {
             return;
         }
@@ -3091,6 +3096,28 @@ impl App {
         }
         self.flush_resume();
         self.begin_power_off();
+    }
+
+    fn warn_battery(&mut self, b: Battery) {
+        if matches!(b.charge, Charge::Charging | Charge::Full) {
+            self.battery_warned = None;
+            return;
+        }
+        if b.percent <= BATTERY_CRITICAL
+            || self.shutting_down()
+            || matches!(self.phase, Phase::Doze { .. })
+        {
+            return;
+        }
+        let due = BATTERY_WARNINGS
+            .iter()
+            .filter(|(level, _)| b.percent <= *level)
+            .rfind(|(level, _)| self.battery_warned.is_none_or(|w| *level < w))
+            .copied();
+        if let Some((level, toast)) = due {
+            self.battery_warned = Some(level);
+            self.hud.toast(toast, self.now());
+        }
     }
 
     fn doze_expired(&self) -> bool {
