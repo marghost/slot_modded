@@ -1,7 +1,8 @@
 use slot_store::{parse_stamp, FF_SPEEDS};
 use slot_ui::{
-    date_time_text, quick_caret_face, quick_label_face, quick_value_face, ClockPicker, QuickRow,
-    QuickValue, UndoFace, MENU_PAD,
+    date_time_text, quick_caret_face, quick_label_face, quick_mark_face, quick_value_face,
+    ClockPicker, QuickRow, QuickValue, UndoFace, MENU_PAD, OUT_H, QUICK_PITCH, QUICK_SPLIT,
+    QUICK_VISIBLE,
 };
 
 fn inked(f: &UndoFace, x: u32, y: u32) -> bool {
@@ -219,5 +220,25 @@ fn the_two_carets_point_different_ways() {
         slot_ui::quick_caret_face(false).rgba,
         slot_ui::quick_caret_face(true).rgba,
         "a caret glyph is missing from the symbols font"
+    );
+}
+
+#[test]
+fn the_scroll_marks_sit_between_the_rows_and_the_legend() {
+    let top = (OUT_H as f32 - QUICK_PITCH * QUICK_VISIBLE as f32) / 2.0;
+    let up = quick_mark_face(false);
+    let down = quick_mark_face(true);
+    assert!(
+        up.w > 0 && up.h > 0 && down.w > 0 && down.h > 0,
+        "a mark rastered blank"
+    );
+    assert!(
+        top - 6.0 - up.h as f32 >= 0.0,
+        "the up mark leaves the screen"
+    );
+    let bottom = top + QUICK_PITCH * QUICK_VISIBLE as f32 + 6.0 + down.h as f32;
+    assert!(
+        bottom <= QUICK_SPLIT,
+        "the down mark runs into the legend: {bottom}"
     );
 }

@@ -14,11 +14,12 @@ use slot_store::{
 };
 use slot_ui::{
     board_from, board_zoom, draw_backdrop, draw_cheat_sheet, draw_empty_slot, draw_footer,
-    draw_slot_name, draw_sticker, ease, grown, lid_at, lid_from, lift_of, on_board, shelf_cart_at,
-    ClockPicker, Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids,
-    PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, SlotChrome,
-    TexId, Toast, BOARD_W, BOARD_X, CART_W, CHEAT_PAGES, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE,
-    HINT_H, HOP_LIFT, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
+    draw_slot_name, draw_sticker, ease, grown, lid_at, lid_from, lift_of, on_board, quick_scroll,
+    shelf_cart_at, ClockPicker, Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis,
+    Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal,
+    Shelf, SlotChrome, TexId, Toast, BOARD_W, BOARD_X, CART_W, CHEAT_PAGES, CHIP_H, CHIP_U, CHIP_V,
+    CHIP_W, HINT_EDGE, HINT_H, HOP_LIFT, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V,
+    SOCKET_W, TURN_PAD,
 };
 
 use crate::audio::Sfx;
@@ -323,6 +324,7 @@ pub struct App {
     undo_face: Option<TexId>,
     clock_faces: Option<(TexId, TexId)>,
     quick_menu_faces: Option<QuickMenuFaces>,
+    quick_scroll: usize,
     quick_clock_faces: Option<[(TexId, u32, u32); 2]>,
     sticker_face: Option<TexId>,
     cheat_sheet_face: Option<TexId>,
@@ -451,6 +453,7 @@ impl App {
             undo_face: None,
             clock_faces: None,
             quick_menu_faces: None,
+            quick_scroll: 0,
             quick_clock_faces: None,
             sticker_face: None,
             cheat_sheet_face: None,
@@ -658,6 +661,11 @@ impl App {
             Phase::QuickMenu { row } => Some(row),
             _ => None,
         }
+    }
+
+    pub fn quick_scroll(&self) -> usize {
+        self.quick_menu()
+            .map_or(0, |row| quick_scroll(row, self.quick_scroll))
     }
 
     pub fn quick_value(&self, row: QuickRow) -> Option<QuickValue> {
@@ -1389,6 +1397,7 @@ impl App {
     }
 
     fn quick_menu_input(&mut self, row: QuickRow, action: Action) {
+        let from = row;
         let row = match action {
             Action::GbaDown(Btn::Up) => row.up(),
             Action::GbaDown(Btn::Down) => row.down(),
@@ -1404,6 +1413,7 @@ impl App {
             }
             _ => return,
         };
+        self.quick_scroll = quick_scroll(row, quick_scroll(from, self.quick_scroll));
         self.phase = Phase::QuickMenu { row };
     }
 
@@ -2079,6 +2089,7 @@ impl App {
             }
             Phase::QuickMenu { row } => QuickMenu {
                 row: *row,
+                scroll: self.quick_scroll,
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
                 clock: self.quick_clock_faces,
                 faces: self.quick_menu_faces.as_ref(),

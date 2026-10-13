@@ -9,7 +9,7 @@ use slot_store::format_stamp;
 use slot_ui::{
     arrows_hint_face, badge_face, battery_badge_face, bezel_face, cart_shadow, cheat_sheet_face,
     chip_face, chip_shadow_face, date_time_text, gb_cart_shadow, hhmm, hint_face, icon_face,
-    menu_face, photo_face, quick_caret_face, quick_label_face, quick_legend_faces,
+    menu_face, photo_face, quick_caret_face, quick_label_face, quick_legend_faces, quick_mark_face,
     quick_value_face, rebuild_count_face, rebuild_title_face, set_clock_hint_face, socket_face,
     sticker_face, title_face, toast_face, wallpaper_face, word_face, CartFace, GbShell, Icon,
     LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue, RebuildScreen, StickerFields,
@@ -252,6 +252,7 @@ impl Frontend {
             .map(|v| v.map(&mut up))
             .collect();
         let carets = faces.quick_carets.map(&mut up);
+        let marks = faces.quick_marks.map(&mut up);
         let legend = faces.quick_legend.map(|f| {
             let (tex, w, _) = up(f);
             (tex, w)
@@ -284,6 +285,7 @@ impl Frontend {
             labels,
             values,
             carets,
+            marks,
             legend,
         });
         app.set_core_part_faces(sockets, chips, blank, shadow);
@@ -568,6 +570,7 @@ struct UiFaces {
     quick_labels: Vec<UndoFace>,
     quick_values: Vec<[UndoFace; 2]>,
     quick_carets: [UndoFace; 2],
+    quick_marks: [UndoFace; 2],
     quick_legend: [UndoFace; 3],
     sockets: Vec<CartFace>,
     chips: Vec<CartFace>,
@@ -614,6 +617,7 @@ impl UiFaces {
                 .map(|v| [false, true].map(|lit| quick_value_face(v.text(), lit)))
                 .collect(),
             quick_carets: [false, true].map(quick_caret_face),
+            quick_marks: [false, true].map(quick_mark_face),
             quick_legend: quick_legend_faces(),
             sockets: slot_store::Core::ALL
                 .iter()

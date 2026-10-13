@@ -231,6 +231,7 @@ impl QuickValue {
 }
 
 pub const QUICK_PITCH: f32 = 52.0;
+pub const QUICK_VISIBLE: usize = 6;
 pub const QUICK_TOP: f32 = (OUT_H as f32 - QUICK_PITCH * QuickRow::MAIN.len() as f32) / 2.0;
 pub const QUICK_EDGE: f32 = 32.0;
 const BAR_INSET: f32 = 4.0;
@@ -240,6 +241,23 @@ const CARET_PX: f32 = 24.0;
 const LEGEND_Y: f32 = 427.0;
 pub const QUICK_SPLIT: f32 = LEGEND_Y - 2.0;
 const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
+const MARK_GAP: f32 = 6.0;
+
+pub fn quick_scroll(row: QuickRow, scroll: usize) -> usize {
+    let len = row.page().len();
+    if len <= QUICK_VISIBLE {
+        return 0;
+    }
+    let at = row.position();
+    let scroll = scroll.min(len - QUICK_VISIBLE);
+    if at < scroll {
+        at
+    } else if at >= scroll + QUICK_VISIBLE {
+        at + 1 - QUICK_VISIBLE
+    } else {
+        scroll
+    }
+}
 
 pub fn quick_label_face(row: QuickRow) -> UndoFace {
     quick_text_face(row.label(), MENU_INK)
@@ -303,6 +321,29 @@ pub fn quick_caret_face(right: bool) -> UndoFace {
     UndoFace { rgba, w, h }
 }
 
+pub fn quick_mark_face(down: bool) -> UndoFace {
+    let glyph = if down { '\u{f0da}' } else { '\u{f0d9}' };
+    let Some(symbols) = crate::icon::symbols_font() else {
+        return UndoFace {
+            rgba: Vec::new(),
+            w: 0,
+            h: 0,
+        };
+    };
+    let (m, cov) = symbols.rasterize(glyph, CARET_PX);
+    let (w, h) = (m.height as u32, m.width as u32);
+    let mut rgba = vec![0u8; (w * h * 4) as usize];
+    for gy in 0..m.height {
+        for gx in 0..m.width {
+            let (x, y) = (m.height - 1 - gy, gx);
+            let at = (y * m.height + x) * 4;
+            let a = cov[gy * m.width + gx];
+            rgba[at..at + 4].copy_from_slice(&[DIM_INK[0], DIM_INK[1], DIM_INK[2], a]);
+        }
+    }
+    UndoFace { rgba, w, h }
+}
+
 pub fn quick_legend_faces() -> [UndoFace; 3] {
     [
         hint_face("B", "Back"),
@@ -315,11 +356,13 @@ pub struct QuickMenuFaces {
     pub labels: Vec<(TexId, u32, u32)>,
     pub values: Vec<[(TexId, u32, u32); 2]>,
     pub carets: [(TexId, u32, u32); 2],
+    pub marks: [(TexId, u32, u32); 2],
     pub legend: [(TexId, u32); 3],
 }
 
 pub struct QuickMenu<'a> {
     pub row: QuickRow,
+    pub scroll: usize,
     pub values: [Option<QuickValue>; QuickRow::ALL.len()],
     pub clock: Option<[(TexId, u32, u32); 2]>,
     pub faces: Option<&'a QuickMenuFaces>,
@@ -334,9 +377,10 @@ impl QuickMenu<'_> {
             h: OUT_H as f32,
             colour: opening(),
         });
+        let scroll = quick_scroll(self.row, self.scroll);
         out.push(Draw::Rect {
             x: 0.0,
-            y: row_top(self.row) + BAR_INSET,
+            y: row_top(self.row, scroll) + BAR_INSET,
             w: OUT_W as f32,
             h: QUICK_PITCH - 2.0 * BAR_INSET,
             colour: edge(),
@@ -345,8 +389,27 @@ impl QuickMenu<'_> {
             return;
         };
         let (right, pad) = (OUT_W as f32 - QUICK_EDGE, MENU_PAD as f32);
-        for &row in self.row.page() {
-            let y = row_top(row) + TYPE_DROP;
+        let page = self.row.page();
+        let shown = page.len().min(QUICK_VISIBLE);
+        let [(up_tex, uw, uh), (down_tex, dw, dh)] = faces.marks;
+        if scroll > 0 {
+            let x = (OUT_W as f32 - uw as f32) / 2.0;
+            push(
+                out,
+                up_tex,
+                x,
+                list_top(page) - MARK_GAP - uh as f32,
+                uw,
+                uh,
+            );
+        }
+        if scroll + shown < page.len() {
+            let x = (OUT_W as f32 - dw as f32) / 2.0;
+            let y = list_top(page) + QUICK_PITCH * shown as f32 + MARK_GAP;
+            push(out, down_tex, x, y, dw, dh);
+        }
+        for &row in &page[scroll..scroll + shown] {
+            let y = row_top(row, scroll) + TYPE_DROP;
             let lit = row == self.row;
             if let Some(&(tex, w, h)) = faces.labels.get(row.index()) {
                 push(out, tex, QUICK_EDGE - pad, y, w, h);
@@ -379,9 +442,12 @@ impl QuickMenu<'_> {
     }
 }
 
-fn row_top(row: QuickRow) -> f32 {
-    let top = (OUT_H as f32 - QUICK_PITCH * row.page().len() as f32) / 2.0;
-    top + QUICK_PITCH * row.position() as f32
+fn list_top(page: &[QuickRow]) -> f32 {
+    (OUT_H as f32 - QUICK_PITCH * page.len().min(QUICK_VISIBLE) as f32) / 2.0
+}
+
+fn row_top(row: QuickRow, scroll: usize) -> f32 {
+    list_top(row.page()) + QUICK_PITCH * row.position().saturating_sub(scroll) as f32
 }
 
 fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {

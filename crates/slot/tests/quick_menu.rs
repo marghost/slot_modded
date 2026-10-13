@@ -9,7 +9,7 @@ use slot_input::{Action, Btn};
 use slot_store::{read_slot_state, write_slot_state, Shader, SlotState};
 use slot_ui::{
     edge, Draw, Icon, QuickMenuFaces, QuickRow, QuickValue, TexId, MENU_PAD, OUT_W, QUICK_EDGE,
-    QUICK_PITCH, QUICK_TOP,
+    QUICK_PITCH, QUICK_TOP, QUICK_VISIBLE,
 };
 use tempfile::TempDir;
 
@@ -526,6 +526,7 @@ fn fake_faces(a: &mut App) {
             .map(|i| [(id(200 + i), 60, 40), (id(210 + i), 60, 40)])
             .collect(),
         carets: [(id(300), 10, 40), (id(301), 10, 40)],
+        marks: [(id(310), 20, 12), (id(311), 20, 12)],
         legend: [(id(400), 70), (id(401), 110), (id(402), 80)],
     });
     a.set_quick_clock_faces((id(500), 150, 40), (id(501), 150, 40));
@@ -640,11 +641,11 @@ fn labels_start_and_values_end_thirty_two_pixels_in() {
     open_at(&mut a, QuickRow::FastForward);
     let out = frame(&a);
     let right = OUT_W as f32 - QUICK_EDGE;
-    for row in QuickRow::GAME {
+    for row in QuickRow::GAME.into_iter().take(QUICK_VISIBLE) {
         let [x, ..] = placed(&out, 100 + row.index()).expect("a label was not drawn");
         assert_eq!(x + MENU_PAD as f32, QUICK_EDGE, "{row:?}'s label");
     }
-    let [x, _, w, _] = placed(&out, value(QuickValue::On, false)).expect("rumble's value");
+    let [x, _, w, _] = placed(&out, value(QuickValue::On, false)).expect("an unselected On");
     assert_eq!(x + w - MENU_PAD as f32, right, "an unselected value");
     let [x, _, w, _] = placed(&out, 301).expect("the right arrow");
     assert_eq!(x + w, right, "the arrow around the selected value");
@@ -692,5 +693,107 @@ fn gb_palettes_flips_on_either_arrow_and_saves() {
             a.quick_value(QuickRow::GbPalettes),
             Some(QuickValue::flag(want))
         );
+    }
+}
+
+#[test]
+fn the_gameplay_page_shows_six_rows_and_marks_the_hidden_ones() {
+    let (_d, mut a, _) = on_carousel();
+    fake_faces(&mut a);
+    open_at(&mut a, QuickRow::FastForward);
+    let page = QuickRow::GAME;
+    assert!(
+        page.len() > QUICK_VISIBLE,
+        "the gameplay page no longer scrolls"
+    );
+    let label = |row: QuickRow| 100 + row.index();
+    let out = frame(&a);
+    for (at, row) in page.iter().enumerate() {
+        assert_eq!(
+            drawn(&out, label(*row)),
+            at < QUICK_VISIBLE,
+            "{row:?} at the top"
+        );
+    }
+    assert!(!drawn(&out, 310), "an up mark with nothing above");
+    assert!(drawn(&out, 311), "no down mark with rows below");
+
+    for _ in 1..page.len() {
+        press(&mut a, Btn::Down);
+    }
+    assert_eq!(a.quick_menu(), page.last().copied());
+    assert_eq!(a.quick_scroll(), page.len() - QUICK_VISIBLE);
+    let out = frame(&a);
+    for (at, row) in page.iter().enumerate() {
+        assert_eq!(
+            drawn(&out, label(*row)),
+            at >= page.len() - QUICK_VISIBLE,
+            "{row:?} at the bottom"
+        );
+    }
+    assert!(drawn(&out, 310), "no up mark with rows above");
+    assert!(!drawn(&out, 311), "a down mark with nothing below");
+}
+
+#[test]
+fn the_list_only_moves_when_the_bar_would_leave_it() {
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::FastForward);
+    let page = QuickRow::GAME;
+    for at in 1..page.len() {
+        press(&mut a, Btn::Down);
+        assert_eq!(
+            a.quick_scroll(),
+            (at + 1).saturating_sub(QUICK_VISIBLE),
+            "down to {at}"
+        );
+    }
+    let top = page.len() - QUICK_VISIBLE;
+    for at in (top..page.len() - 1).rev() {
+        press(&mut a, Btn::Up);
+        assert_eq!(a.quick_scroll(), top, "up to {at} moved the list");
+    }
+    press(&mut a, Btn::Up);
+    assert_eq!(a.quick_scroll(), top - 1);
+    press(&mut a, Btn::Down);
+    assert_eq!(a.quick_scroll(), top - 1, "down again moved the list");
+}
+
+#[test]
+fn wrapping_round_the_gameplay_page_shows_the_other_end() {
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::FastForward);
+    press(&mut a, Btn::Up);
+    assert_eq!(a.quick_menu(), QuickRow::GAME.last().copied());
+    assert_eq!(a.quick_scroll(), QuickRow::GAME.len() - QUICK_VISIBLE);
+    press(&mut a, Btn::Down);
+    assert_eq!(a.quick_menu(), Some(QuickRow::FastForward));
+    assert_eq!(a.quick_scroll(), 0);
+}
+
+#[test]
+fn coming_back_to_the_gameplay_page_starts_at_its_top() {
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::FastForward);
+    press(&mut a, Btn::Up);
+    press(&mut a, Btn::B);
+    press(&mut a, Btn::A);
+    assert_eq!(a.quick_menu(), Some(QuickRow::FastForward));
+    assert_eq!(a.quick_scroll(), 0);
+    press(&mut a, Btn::Down);
+    assert_eq!(
+        a.quick_scroll(),
+        0,
+        "the first step down scrolled a list at its top"
+    );
+}
+
+#[test]
+fn pages_of_six_rows_or_fewer_never_scroll() {
+    for page in [&QuickRow::MAIN[..], &QuickRow::SCREEN[..]] {
+        assert!(page.len() <= QUICK_VISIBLE);
+        for &row in page {
+            assert_eq!(slot_ui::quick_scroll(row, 5), 0, "{row:?}");
+        }
     }
 }
