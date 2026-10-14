@@ -1,10 +1,11 @@
 <div align="center">
 
-<img src=".github/resources/banner.png" width="100%" alt="slot_modded. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
+<img src=".github/resources/banner.png" width="100%" alt="slot_modded. A bespoke, Game Boy-centric frontend for the Anbernic RG SP and Anbernic RG35XXSP of course!">
 
 <a href="LICENSE"><img src="https://img.shields.io/github/license/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="License"></a>
 <a href="https://slot-cfw.fyi"><img src="https://img.shields.io/badge/Guide-slot--cfw.fyi-4d4d57?style=for-the-badge&labelColor=242429" height="36" alt="Guide"></a>
 <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Changelog-4d4d57?style=for-the-badge&labelColor=242429" height="36" alt="Changelog"></a>
+<a href="https://github.com/marghost/slot_modded/wiki"><img src="https://img.shields.io/badge/Wiki-4d4d57?style=for-the-badge&labelColor=242429" height="36" alt="Wiki"></a>
 
 </div>
 
@@ -15,12 +16,18 @@
 An **unofficial fork** of [slot](https://github.com/BrandonKowalski/slot) by Brandon Kowalski, who deserves all the
 credit. Not affiliated with or endorsed by him: please report this fork's problems here. Same license, GPL-3.0-or-later.
 
-Some features are adapted from other slot forks: [slot.advance](https://github.com/suprsomething/slot.advance) by
-suprsomething (battery warnings, standby, favorites), [snowslots](https://github.com/chiyuki0325/snowslots) by
-chiyuki0325 (fast-forward pitch) and [jgraving/slot](https://github.com/jgraving/slot) by jgraving (favorites and
-recents). Thank you!
+Some features are adapted from other slot forks and pull requests: [slot.advance](https://github.com/suprsomething/slot.advance)
+by suprsomething (battery warnings, standby, favorites), [snowslots](https://github.com/chiyuki0325/snowslots) by
+chiyuki0325 (fast-forward pitch), [jgraving/slot](https://github.com/jgraving/slot) by jgraving (favorites and recents),
+Markus Maribu's [GB/GBC bezels](https://github.com/BrandonKowalski/slot/pull/77), felipecpaiva's
+[faster boot](https://github.com/BrandonKowalski/slot/pull/75) and [stevolarn/slot](https://github.com/stevolarn/slot)
+(faster scrolling). Thank you!
 
-[User guide](https://slot-cfw.fyi) · [Changelog](CHANGELOG.md)
+**Tuned and tested on the Anbernic RG35XXSP**: GB/GBC bezels fitted to its 640×480 screen, the battery badge in its
+SP frame, and every feature checked on the device. The other handhelds slot supports should work as before, but this
+fork is not tested on them.
+
+[User guide](https://slot-cfw.fyi) · [Changelog](CHANGELOG.md) · [Wiki: settings, SD card files, RG35XXSP notes](https://github.com/marghost/slot_modded/wiki)
 
 # What's new
 
@@ -36,7 +43,9 @@ recents). Thank you!
 | **Low-battery warning** | Automatic, at 15% and 10% |
 | **Standby** | Automatic: with the lid shut, slot stops drawing to save battery |
 | **Scrolling settings** | Long settings pages scroll; ▲ ▼ show there is more |
-| **slot._modded boot logo** | In the release; with the quick option, see step 5 below |
+| **GB / GBC bezels** | On by default in GB and GBC games. Settings: MENU → Screen → **GB / GBC Bezels** to change or turn off |
+| **Shelf memory** | Automatic: each shelf opens on the game you left it on, also after a restart |
+| **Faster scrolling** | Hold Left or Right for 2 s on a shelf of 60+ games: it moves 3 carts a step |
 
 # Try this fork on your device
 
@@ -51,9 +60,9 @@ For a handheld that already runs slot OS. Your games, saves and states stay as t
 2. Turn the handheld off and put slot's SD card in your computer.
 3. In the card's `System` folder, rename the original `slot` file to `slot.orig`. That keeps it as a backup.
 4. Copy the downloaded `slot` into the card's `System` folder.
-5. Optional, for the slot._modded boot logo: download
-   [`bootlogo.bmp`](https://github.com/marghost/slot_modded/releases/latest/download/bootlogo.bmp) and copy it over
-   `System/bootlogo.bmp`. It shows from the second start.
+5. Optional, if you use the gpSP emulator: also download
+   [`gpsp_libretro.so`](https://github.com/marghost/slot_modded/releases/latest/download/gpsp_libretro.so) and copy it
+   over `System/gpsp_libretro.so`, for the original author's latest gpSP fix.
 6. Eject the card safely, put it back in the handheld and turn it on.
 
 To go back to the original slot, delete `System/slot` and rename `System/slot.orig` back to `slot`.

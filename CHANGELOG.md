@@ -1,5 +1,28 @@
 # Changelog
 
+## [v1.6.0-mod.3](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.3) (marghost fork)
+
+Changes made in this fork since v1.6.0-mod.2 (2026-10-13). Written by Claude Opus (AI), see the
+[Fork AI Disclosure](README.md#fork-ai-disclosure):
+
+- Game Boy and Game Boy Color games show a bezel, on by default, with a set drawn for 640-wide screens such as the
+  RG35XXSP, and the GBA SP frame steps aside for them. Settings: MENU → Screen → GB / GBC Bezels picks another PNG from the
+  card's `bezels` folders, or None; a picked PNG that is missing falls back to the shipped bezel. (From
+  [slot PR #77](https://github.com/BrandonKowalski/slot/pull/77) by Markus Maribu, not merged in the original yet.)
+- New RG35XXSP versions of the GB and GBC bezels, whose window fits the game picture exactly, with no black gap.
+  They are the default on 640-wide screens; Markus Maribu's originals stay selectable in GB / GBC Bezels.
+- Each shelf (GBA, GB, GBC and Favorites) opens on the game it was left on, also after a restart.
+- Holding Left or Right for about two seconds on a shelf of 60 games or more moves three carts a step. (Adapted from
+  [stevolarn/slot](https://github.com/stevolarn/slot).)
+- Fast scrolling no longer shows an empty shelf while the carts catch up.
+- With a GB or GBC bezel up, the volume, brightness, rewind and fast-forward bars and the banners show inside the game
+  window instead of under the bezel, and the save state switcher and link menu take the bezel away while they are open.
+- Faster boot with big Game Boy libraries: a cart's shell is read when it is first drawn, not for every cart before the
+  shelf appears. (Adapted from [slot PR #75](https://github.com/BrandonKowalski/slot/pull/75) by felipecpaiva.)
+- The slot._modded boot logo is built into `slot`, so it no longer needs `System/bootlogo.bmp`. A logo at
+  `Config/bootlogo.bmp` still replaces it.
+- Settings → About shows the fork author's picture under the sticker, with "_modded v3" across it.
+
 ## [v1.6.0-mod.2](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.2) (marghost fork)
 
 Changes made in this fork since v1.6.0-mod.1 (2026-10-13). Written by Claude Opus (AI), see the
