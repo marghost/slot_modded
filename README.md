@@ -28,9 +28,9 @@ fork is not tested on them.
 
 [User guide](https://slot-cfw.fyi) · [Changelog](CHANGELOG.md) · [Wiki: settings, SD card files, RG35XXSP notes](https://github.com/marghost/slot_modded/wiki)
 
-# Documentation: the [wiki](https://github.com/marghost/slot_modded/wiki)
+# Documentation - [The Wiki](https://github.com/marghost/slot_modded/wiki)
 
-Everything technical lives in the wiki, one short page per topic:
+Everything technical lives in the wiki, one page per topic all the documentation you need:
 
 | Page | What it contains |
 |---|---|
@@ -40,23 +40,24 @@ Everything technical lives in the wiki, one short page per topic:
 | [Troubleshooting](https://github.com/marghost/slot_modded/wiki/Troubleshooting) | Where the logs are, common surprises, going back to the original slot |
 | [Building](https://github.com/marghost/slot_modded/wiki/Building) | Run on a PC, build for the console, run the tests |
 
-# What's new
+# What's new on this Fork
 
 | Feature | How to get there |
 |---|---|
-| **Battery %** in game | Always on, bottom-right of the bezel (4:3 screens like the RG35XXSP). Green → red as it drains. |
-| **Button Cheat Sheet** | Settings: MENU → **Button Cheat Sheet** |
+| **Battery %** in game | Always on, any game and any console, bottom-right of the bezel (4:3 screens like the RG35XXSP are compatible). Green → red as it drains. |
+| **Button Cheat Sheet** | Settings: MENU → **Button Cheat Sheet**.  This will tell you all the hotkeys! |
 | **Button Cheat Sheet** in game | Save state switcher: double-tap MENU → **START** |
-| **Favorites** | On the shelf, **Y** adds or removes a game; a heart marks it. **R1** past GBC opens the Favorites shelf. Your own sticker: put a PNG at `System/favorite.png`. |
+| **Shelves** |Other name for folder, in this modded version you have access to a few of them: GBA, GB, GBC, Favorites or Recents. |
+| **Favorites** | On the shelf, **Y** adds or removes a game to your favorites; a heart marks it. **R1** past GBC opens the Favorites shelf. To set your own icon on the cartridge: put your PNG at `System/favorite.png`. |
 | **Recents** | **R1** to the Recents shelf: your last 10 games, newest first |
-| **Startup Screen** | Settings: MENU → **Startup Screen** (GBA, GB, GBC, Favorites or Recents) |
-| **Keep FF Pitch** | Settings: MENU → Gameplay → **Keep FF Pitch**, with Fast Forward Sound on |
-| **Low-battery warning** | Automatic, at 15% and 10% |
-| **Standby** | Automatic: with the lid shut, slot stops drawing to save battery |
-| **Scrolling settings** | Long settings pages scroll; ▲ ▼ show there is more |
-| **GB / GBC bezels** | On by default in GB and GBC games. Settings: MENU → Screen → **GB / GBC Bezels** to change or turn off |
+| **Startup Screen** | Settings: MENU → **Startup Screen** (GBA, GB, GBC, Favorites or Recents).  Choose folder/shelf at boot. |
 | **Shelf memory** | Automatic: each shelf opens on the game you left it on, also after a restart |
+| **Keep FF Pitch** | Settings: MENU → Gameplay → **Keep FF Pitch**, with Fast Forward Sound on.  This lower the pitch of the game music when you FF.  |
+| **Low-battery warning** | Automatic alerts, at 15% and 10% |
+| **Standby** | Automatic: with the lid shut, slot stops drawing screen image to save battery |
+| **GB / GBC bezels** | On by default in GB and GBC games. Settings: MENU → Screen → **GB / GBC Bezels** to change or turn off |
 | **Faster scrolling** | Hold Left or Right for 2 s on a shelf of 60+ games: it moves 3 carts a step |
+| ***Scrolling settings*** | Long settings pages scroll; ▲ ▼ show there is more.  Technical feature to handle longer menu lists. |
 
 # Try this fork on your device
 
@@ -131,11 +132,10 @@ short:
 
 # Fork AI Disclosure
 
-- **Written by AI.** Every change in this fork, both the Rust code and the documentation (this README and the fork
-  entry in the [CHANGELOG](CHANGELOG.md)), was written by Claude Opus, Anthropic's AI model, working in Claude Code.
+- **Written by AI.** Every change in this fork, both the Rust code and the documentation in the [CHANGELOG](CHANGELOG.md), was written by Claude Opus.
   The original project has its own
-  [AI Disclosure](https://github.com/BrandonKowalski/slot#ai-disclosure), which covers only the original project. Its
-  code was also put together by Claude Opus, but its documentation is human-written; this fork's documentation is not.
+  [AI Disclosure](https://github.com/BrandonKowalski/slot#ai-disclosure). Its
+  code was also put together by Claude Opus.
 - **Not reviewed by the original author.** Brandon Kowalski has not reviewed, tested or approved anything in this
   fork. Any bug here may be the fork's own, so check whether it also happens on the original slot before reporting it
   there.
