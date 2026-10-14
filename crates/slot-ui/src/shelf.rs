@@ -167,7 +167,25 @@ impl Shelf {
     }
 
     pub fn on_screen(&self) -> Vec<usize> {
-        self.around(SLOTS)
+        let lag = self.lag();
+        let mut out = Vec::new();
+        for step in 0..=SLOTS {
+            for off in [lag + step, lag - step] {
+                if let Some(i) = self.cart_at_offset(off) {
+                    if !out.contains(&i) {
+                        out.push(i);
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    fn lag(&self) -> i32 {
+        if self.carts.len() < 2 {
+            return 0;
+        }
+        (self.scroll - self.scroll_target()).round() as i32
     }
 
     pub fn around(&self, radius: i32) -> Vec<usize> {
@@ -375,7 +393,8 @@ impl Shelf {
         let recede = recede.clamp(0.0, 1.0);
         let dim = dim.clamp(0.0, 1.0);
         let target = self.scroll_target();
-        for slot in -SLOTS..=SLOTS {
+        let lag = self.lag();
+        for slot in lag - SLOTS..=lag + SLOTS {
             let Some(i) = self.cart_at_offset(slot) else {
                 continue;
             };

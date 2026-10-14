@@ -941,3 +941,43 @@ fn letting_go_ends_the_fast_steps() {
         at += 110;
     }
 }
+
+#[test]
+fn a_fast_held_shelf_always_has_carts_on_screen() {
+    let mut s = shelf_with(71);
+    s.hold_right(0);
+    for frame in 0..1200 {
+        s.tick(frame * 16);
+        s.update(1.0 / 60.0);
+        let mut out = Vec::new();
+        s.draw(0.0, &mut out);
+        let carts = out
+            .iter()
+            .filter(|d| {
+                matches!(d, Draw::Rect { x, w, h, .. } | Draw::Tex { x, w, h, .. }
+                    if *h > 100.0 && *x < OUT_W as f32 && x + w > 0.0)
+            })
+            .count();
+        assert!(
+            carts > 0,
+            "frame {frame}: an empty shelf while scrolling fast"
+        );
+    }
+}
+
+#[test]
+fn the_carts_asked_for_are_the_ones_drawn_while_the_shelf_catches_up() {
+    let mut s = shelf_with(71);
+    s.hold_right(0);
+    for frame in 0..200 {
+        s.tick(frame * 16);
+        s.update(1.0 / 60.0);
+    }
+    let lag = (s.scroll - s.scroll_target()).round() as i32;
+    assert!(lag < -1, "the test never made the shelf lag: {lag}");
+    let behind = s.cart_at_offset(lag).unwrap();
+    assert!(
+        s.on_screen().contains(&behind),
+        "the cart in the middle was not asked for"
+    );
+}
