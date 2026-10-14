@@ -13,8 +13,7 @@
 
 # About this fork
 
-An **unofficial fork** of [slot](https://github.com/BrandonKowalski/slot) by Brandon Kowalski, who deserves all the
-credit. Not affiliated with or endorsed by him: please report this fork's problems here. Same license, GPL-3.0-or-later.
+An **unofficial fork** of [slot](https://github.com/BrandonKowalski/slot) by Brandon Kowalski. Not affiliated with or endorsed by him: please report this fork's problems here. Same license, GPL-3.0-or-later.
 
 Some features are adapted from other slot forks and pull requests: [slot.advance](https://github.com/suprsomething/slot.advance)
 by suprsomething (battery warnings, standby, favorites), [snowslots](https://github.com/chiyuki0325/snowslots) by
