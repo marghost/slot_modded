@@ -26,7 +26,7 @@ Markus Maribu's [GB/GBC bezels](https://github.com/BrandonKowalski/slot/pull/77)
 SP frame, and every feature checked on the device. The other handhelds slot supports should work as before, but this
 fork is not tested on them.
 
-[User guide](https://slot-cfw.fyi) · [Changelog](CHANGELOG.md) · [Wiki: settings, SD card files, RG35XXSP notes](https://github.com/marghost/slot_modded/wiki)
+[User guide](https://slot-cfw.fyi) · [Changelog](CHANGELOG.md) · [Wiki](https://github.com/marghost/slot_modded/wiki)
 
 # Documentation - [The Wiki](https://github.com/marghost/slot_modded/wiki)
 
