@@ -1,5 +1,5 @@
 use slot::bootlogo::{
-    chosen, compose, decode, encode, install, size, Bmp, Outcome, CARD_LOGO, USER_LOGO,
+    chosen, compose, decode, encode, install, size, Bmp, Outcome, BUILT_IN_LOGO, USER_LOGO,
 };
 
 const BG: [u8; 3] = [11, 14, 17];
@@ -116,12 +116,7 @@ fn a_bad_wordmark_or_no_logo_to_measure_never_touches_the_partition() {
 
 #[test]
 fn the_shipped_wordmark_fits_every_panel_baseos_supports() {
-    let card = std::fs::read(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../card/System/bootlogo.bmp"
-    ))
-    .unwrap();
-    let m = decode(&card).unwrap();
+    let m = decode(BUILT_IN_LOGO).unwrap();
     for panel in [(720, 480), (640, 480), (720, 720), (480, 640)] {
         assert!(compose(&m, panel).is_some(), "{panel:?}");
     }
@@ -138,34 +133,33 @@ fn card_with(logos: &[(&str, &[u8])]) -> tempfile::TempDir {
 }
 
 #[test]
-fn a_logo_in_config_wins_over_the_shipped_one() {
+fn a_logo_in_config_wins_over_the_built_in_one() {
     let user = screen(640, 480, 9);
-    let card = card_with(&[(CARD_LOGO, &encode(&mark())), (USER_LOGO, &user)]);
-    assert_eq!(chosen(card.path()), Some(user));
+    let card = card_with(&[(USER_LOGO, &user)]);
+    assert_eq!(chosen(card.path()), user);
 }
 
 #[test]
-fn the_shipped_logo_is_used_without_one_in_config() {
-    let shipped = encode(&mark());
-    let card = card_with(&[(CARD_LOGO, &shipped)]);
-    assert_eq!(chosen(card.path()), Some(shipped));
+fn the_built_in_logo_is_used_without_one_in_config() {
+    let card = card_with(&[]);
+    assert_eq!(chosen(card.path()), BUILT_IN_LOGO);
 }
 
 #[test]
-fn a_config_logo_that_is_not_a_24_bit_bmp_falls_back_to_the_shipped_one() {
-    let shipped = encode(&mark());
-    let card = card_with(&[(CARD_LOGO, &shipped), (USER_LOGO, b"not a bmp")]);
-    assert_eq!(chosen(card.path()), Some(shipped));
+fn a_logo_left_in_system_by_an_older_install_is_ignored() {
+    let card = card_with(&[("System/bootlogo.bmp", &encode(&mark()))]);
+    assert_eq!(chosen(card.path()), BUILT_IN_LOGO);
 }
 
 #[test]
-fn the_card_logo_fits_every_supported_panel_on_its_own_background() {
-    let bytes = std::fs::read(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../card/System/bootlogo.bmp"
-    ))
-    .unwrap();
-    let logo = decode(&bytes).expect("the card logo is a 24-bit bmp");
+fn a_config_logo_that_is_not_a_24_bit_bmp_falls_back_to_the_built_in_one() {
+    let card = card_with(&[(USER_LOGO, b"not a bmp")]);
+    assert_eq!(chosen(card.path()), BUILT_IN_LOGO);
+}
+
+#[test]
+fn the_built_in_logo_fits_every_supported_panel_on_its_own_background() {
+    let logo = decode(BUILT_IN_LOGO).expect("the built-in logo is a 24-bit bmp");
     assert_eq!(logo.rgb[0], BG, "the top-left pixel fills the screen");
     for panel in [(640, 480), (720, 480), (480, 640)] {
         let composed = compose(&logo, panel).unwrap_or_else(|| panic!("refused on {panel:?}"));

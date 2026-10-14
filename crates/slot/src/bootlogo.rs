@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub const CARD_LOGO: &str = "System/bootlogo.bmp";
+pub const BUILT_IN_LOGO: &[u8] = include_bytes!("../assets/bootlogo.bmp");
 pub const USER_LOGO: &str = "Config/bootlogo.bmp";
 const LOGO: &str = "bootlogo.bmp";
 const ORIGINAL: &str = "bootlogo.baseos.bmp";
@@ -167,23 +167,18 @@ fn replace(dir: &Path, name: &str, bytes: &[u8]) -> io::Result<()> {
     File::open(dir)?.sync_all()
 }
 
-pub fn chosen(card: &Path) -> Option<Vec<u8>> {
-    for name in [USER_LOGO, CARD_LOGO] {
-        let Ok(logo) = fs::read(card.join(name)) else {
-            continue;
-        };
+pub fn chosen(card: &Path) -> Vec<u8> {
+    if let Ok(logo) = fs::read(card.join(USER_LOGO)) {
         if decode(&logo).is_some() {
-            return Some(logo);
+            return logo;
         }
-        eprintln!("slot: bootlogo: {name} is not a 24-bit bmp, skipping it");
+        eprintln!("slot: bootlogo: {USER_LOGO} is not a 24-bit bmp, skipping it");
     }
-    None
+    BUILT_IN_LOGO.to_vec()
 }
 
 pub fn refresh(card: &Path) {
-    let Some(logo) = chosen(card) else {
-        return;
-    };
+    let logo = chosen(card);
     let Some(device) = partition(PARTITION) else {
         eprintln!("slot: bootlogo: no {PARTITION} partition");
         return;
