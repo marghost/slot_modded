@@ -59,11 +59,17 @@ fn the_shipped_frames_land_once_and_a_replacement_stays() {
     );
     assert_eq!(
         list(d.path(), Platform::Gb, 640),
-        vec!["bezel_gb_640.png".to_string()]
+        vec![
+            "bezel_gb_640.png".to_string(),
+            "bezel_gb_rg35xxsp.png".to_string()
+        ]
     );
     assert_eq!(
         list(d.path(), Platform::Gbc, 640),
-        vec!["bezel_gbc_640.png".to_string()]
+        vec![
+            "bezel_gbc_640.png".to_string(),
+            "bezel_gbc_rg35xxsp.png".to_string()
+        ]
     );
     assert!(list(d.path(), Platform::Gba, 640).is_empty());
 }

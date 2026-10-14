@@ -150,7 +150,7 @@ impl QuickRow {
             QuickRow::GbPalettes => "GB Palettes",
             QuickRow::CheatSheet => "Button Cheat Sheet",
             QuickRow::RunAhead => "Run-Ahead",
-            QuickRow::Bezels => "BEZELS",
+            QuickRow::Bezels => "GB / GBC Bezels",
             QuickRow::GbBezel => "GB",
             QuickRow::GbcBezel => "GBC",
         }

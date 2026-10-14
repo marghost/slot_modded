@@ -14,12 +14,12 @@ use slot_store::{
 };
 use slot_ui::{
     board_from, board_zoom, draw_backdrop, draw_cheat_sheet, draw_empty_slot, draw_footer,
-    draw_slot_name, draw_sticker, ease, grown, lid_at, lid_from, lift_of, on_board, quick_scroll,
-    shelf_cart_at, ClockPicker, Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis,
-    Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal,
-    Shelf, SlotChrome, TexId, Toast, BOARD_W, BOARD_X, CART_W, CHEAT_PAGES, CHIP_H, CHIP_U, CHIP_V,
-    CHIP_W, HINT_EDGE, HINT_H, HOP_LIFT, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V,
-    SOCKET_W, TURN_PAD,
+    draw_modded_badge, draw_slot_name, draw_sticker, ease, grown, lid_at, lid_from, lift_of,
+    on_board, quick_scroll, shelf_cart_at, ClockPicker, Draw, FfState, GbShell, Hud, HudKind, Icon,
+    LinkBadge, Millis, Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces, QuickRow,
+    QuickValue, Refusal, Shelf, SlotChrome, TexId, Toast, BOARD_W, BOARD_X, CART_W, CHEAT_PAGES,
+    CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HINT_H, HOP_LIFT, SHADOW_H, SHADOW_W, SOCKET_H,
+    SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
 };
 
 use crate::audio::Sfx;
@@ -336,6 +336,7 @@ pub struct App {
     game_bezel_hole: Option<[f32; 4]>,
     panel: (u32, u32),
     sticker_face: Option<TexId>,
+    modded_face: Option<TexId>,
     cheat_sheet_face: Option<TexId>,
     wallpaper: Option<TexId>,
     battery_percent: slot_ui::Printed,
@@ -499,6 +500,7 @@ impl App {
             game_bezel_hole: None,
             panel: (OUT_W, OUT_H),
             sticker_face: None,
+            modded_face: None,
             cheat_sheet_face: None,
             wallpaper: None,
             battery_percent: slot_ui::Printed::default(),
@@ -955,6 +957,10 @@ impl App {
         self.platform
     }
 
+    pub fn set_modded_face(&mut self, face: TexId) {
+        self.modded_face = Some(face);
+    }
+
     pub fn set_sticker_face(&mut self, face: TexId) {
         self.sticker_face = Some(face);
     }
@@ -1169,10 +1175,10 @@ impl App {
         if self.screen <= 0.0 {
             return None;
         }
-        if !matches!(
-            self.phase,
-            Phase::Playing { .. } | Phase::Polaroids { .. } | Phase::Ejecting { .. }
-        ) {
+        if !matches!(self.phase, Phase::Playing { .. } | Phase::Ejecting { .. }) {
+            return None;
+        }
+        if self.game_menu.is_some() {
             return None;
         }
         if !matches!(self.platform, Platform::Gb | Platform::Gbc) {
@@ -1186,6 +1192,24 @@ impl App {
         ))
     }
 
+    pub fn hud_area(&self) -> Option<[f32; 4]> {
+        let (_, w, h, hole) = self.shown_game_bezel()?;
+        let (cw, ch) = (slot_gfx::OUT_W as f32, slot_gfx::OUT_H as f32);
+        let (sx, sy) = match (w, h) == self.panel && (w, h) != (slot_gfx::OUT_W, slot_gfx::OUT_H) {
+            true => {
+                let shown_h = (w as f32 * ch / cw).round();
+                (cw / w as f32, ch / shown_h)
+            }
+            false => (cw / w as f32, ch / h as f32),
+        };
+        let (w, h) = (w as f32, h as f32);
+        let x0 = (hole[0] * w * sx).clamp(0.0, cw);
+        let y0 = (hole[1] * h * sy).clamp(0.0, ch);
+        let x1 = ((hole[0] + hole[2]) * w * sx).clamp(0.0, cw);
+        let y1 = ((hole[1] + hole[3]) * h * sy).clamp(0.0, ch);
+        Some([x0, y0, x1 - x0, y1 - y0])
+    }
+
     pub fn bezel_files(&self, platform: Platform) -> Vec<String> {
         self.root()
             .map(|root| crate::bezel::list(root, platform, self.panel_width()))
@@ -1193,12 +1217,14 @@ impl App {
     }
 
     pub fn resolved_bezel(&self, platform: Platform) -> BezelPick {
-        let pick = self.bezel_pick(platform);
-        match pick {
-            BezelPick::File(name) if !self.bezel_files(platform).iter().any(|n| n == &name) => {
-                BezelPick::None
-            }
-            other => other,
+        let files = self.bezel_files(platform);
+        match self.bezel_pick(platform) {
+            BezelPick::None => BezelPick::None,
+            BezelPick::File(name) if files.contains(&name) => BezelPick::File(name),
+            _ => crate::bezel::shipped(platform, self.panel_width())
+                .map(str::to_string)
+                .filter(|name| files.contains(name))
+                .map_or(BezelPick::None, BezelPick::File),
         }
     }
 
@@ -2495,6 +2521,7 @@ impl App {
             Phase::About => {
                 draw_backdrop(self.wallpaper, out);
                 draw_sticker(self.sticker_face, out);
+                draw_modded_badge(self.modded_face, out);
                 return;
             }
             Phase::CheatSheet { .. } => {
@@ -2550,7 +2577,10 @@ impl App {
         if let Some(menu) = self.game_menu {
             self.draw_game_menu(menu, out);
         }
-        self.hud.draw(self.now(), out);
+        match self.hud_area() {
+            Some(area) => self.hud.draw_within(self.now(), area, out),
+            None => self.hud.draw(self.now(), out),
+        }
     }
 
     pub fn screen_shake(&self) -> f32 {

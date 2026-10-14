@@ -22,6 +22,18 @@ const BUNDLED: &[(&str, &str, &str, &[u8])] = &[
     (
         GAME_BEZELS_640,
         "GB",
+        "bezel_gb_rg35xxsp.png",
+        include_bytes!("../../../bezels 640/GB/bezel_gb_rg35xxsp.png"),
+    ),
+    (
+        GAME_BEZELS_640,
+        "GBC",
+        "bezel_gbc_rg35xxsp.png",
+        include_bytes!("../../../bezels 640/GBC/bezel_gbc_rg35xxsp.png"),
+    ),
+    (
+        GAME_BEZELS_640,
+        "GB",
         "bezel_gb_640.png",
         include_bytes!("../../../bezels 640/GB/bezel_gb_640.png"),
     ),
@@ -58,6 +70,13 @@ pub fn install(root: &Path) {
             eprintln!("slot: bezel: {e}");
         }
     }
+}
+
+pub fn shipped(platform: Platform, width: u32) -> Option<&'static str> {
+    BUNDLED
+        .iter()
+        .find(|(folder, dir, _, _)| *folder == game_dir(width) && *dir == platform.dir_name())
+        .map(|(_, _, name, _)| *name)
 }
 
 pub fn list(root: &Path, platform: Platform, width: u32) -> Vec<String> {

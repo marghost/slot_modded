@@ -9,11 +9,12 @@ use slot_store::{format_stamp, BezelPick, Platform as Console};
 use slot_ui::{
     arrows_hint_face, badge_face, battery_badge_face, bezel_face, cart_shadow, cheat_sheet_face,
     chip_face, chip_shadow_face, date_time_text, favorite_face, gb_cart_shadow, hhmm, hint_face,
-    icon_face, menu_face, photo_face, quick_caret_face, quick_label_face, quick_legend_faces,
-    quick_mark_face, quick_value_face, rebuild_count_face, rebuild_title_face, set_clock_hint_face,
-    socket_face, sticker_face, title_face, toast_face, wallpaper_face, word_face, CartFace,
-    GameBezelFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue,
-    RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
+    icon_face, menu_face, modded_badge_face, photo_face, quick_caret_face, quick_label_face,
+    quick_legend_faces, quick_mark_face, quick_value_face, rebuild_count_face, rebuild_title_face,
+    set_clock_hint_face, socket_face, sticker_face, title_face, toast_face, wallpaper_face,
+    word_face, CartFace, GameBezelFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces,
+    QuickRow, QuickValue, RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX,
+    HUD_ICON_PX, HUD_INK, LEGEND,
 };
 
 use crate::app::{App, LinkRow, Phase};
@@ -232,6 +233,9 @@ impl Frontend {
         let favorite = favorite_face(self.session.app().root());
         let favorite = compositor.create_texture(favorite.w, favorite.h, &favorite.rgba);
         self.session.app_mut().set_favorite_face(favorite);
+        let modded = modded_badge_face();
+        let modded = compositor.create_texture(modded.w, modded.h, &modded.rgba);
+        self.session.app_mut().set_modded_face(modded);
         crate::boot_time::mark("shelf faces");
         self.upload_wallpaper(compositor);
     }
@@ -803,7 +807,7 @@ fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut Bezel
                     None => app.set_game_bezel(None, (0, 0), None),
                 }
             }
-            BezelPick::None => app.set_game_bezel(None, (0, 0), None),
+            BezelPick::None | BezelPick::Shipped => app.set_game_bezel(None, (0, 0), None),
         }
     }
     if app.quick_menu().is_none() {

@@ -22,6 +22,7 @@ pub const RUN_AHEAD_MAX: u8 = 1;
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub enum BezelPick {
     #[default]
+    Shipped,
     None,
     File(String),
 }
@@ -29,6 +30,7 @@ pub enum BezelPick {
 impl BezelPick {
     pub fn key(&self) -> String {
         match self {
+            BezelPick::Shipped => "shipped".to_string(),
             BezelPick::None => "none".to_string(),
             BezelPick::File(name) => name.clone(),
         }
@@ -36,6 +38,7 @@ impl BezelPick {
 
     pub fn label(&self) -> String {
         match self {
+            BezelPick::Shipped => "Shipped".to_string(),
             BezelPick::None => "None".to_string(),
             BezelPick::File(name) => name
                 .rsplit_once('.')
@@ -47,7 +50,8 @@ impl BezelPick {
 
     pub fn parse(value: &str) -> BezelPick {
         match value {
-            "" | "none" => BezelPick::None,
+            "" | "shipped" => BezelPick::Shipped,
+            "none" => BezelPick::None,
             other => BezelPick::File(other.to_string()),
         }
     }
@@ -205,8 +209,8 @@ impl Default for SlotState {
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
             startup_screen: StartupScreen::Gba,
-            bezel_gb: BezelPick::None,
-            bezel_gbc: BezelPick::None,
+            bezel_gb: BezelPick::Shipped,
+            bezel_gbc: BezelPick::Shipped,
         }
     }
 }

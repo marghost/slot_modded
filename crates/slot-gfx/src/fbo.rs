@@ -431,11 +431,13 @@ impl Compositor {
             gl::UseProgram(self.bezel_prog);
             gl::Uniform3f(self.u_bezel_gain, self.gain[0], self.gain[1], self.gain[2]);
             gl::Uniform1f(self.u_bezel_alpha, alpha);
-            gl::BindTexture(gl::TEXTURE_2D, bezel);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
-        self.quad.draw();
+        if !covers_panel(self.panel_game_bezel.map(|b| (b.w, b.h)), window) {
+            unsafe { gl::BindTexture(gl::TEXTURE_2D, bezel) };
+            self.quad.draw();
+        }
         if let Some((tex, w, h)) = self.overlay {
             let scale = window.0 as f32 / OUT_W as f32;
             let (w, h) = (
@@ -457,7 +459,7 @@ impl Compositor {
         let Some(overlay) = self.panel_game_bezel else {
             return;
         };
-        if (overlay.w, overlay.h) != window {
+        if !covers_panel(Some((overlay.w, overlay.h)), window) {
             return;
         }
         let (x, y, w, h) = panel_bezel_rect(
@@ -512,6 +514,10 @@ impl Compositor {
     }
 }
 
+fn covers_panel(game_bezel: Option<(u32, u32)>, window: (u32, u32)) -> bool {
+    game_bezel == Some(window)
+}
+
 /// The game bezel in top-left window pixels, collapsed the same way as the picture.
 /// At full power it is the whole frame. While the picture opens or closes it
 /// shrinks toward the picture's centre.
@@ -542,7 +548,20 @@ fn panel_bezel_rect(
 
 #[cfg(test)]
 mod tests {
-    use super::panel_bezel_rect;
+    use super::{covers_panel, panel_bezel_rect};
+
+    #[test]
+    fn a_panel_sized_game_bezel_takes_the_place_of_the_sp_frame() {
+        assert!(covers_panel(Some((640, 480)), (640, 480)));
+        assert!(
+            !covers_panel(None, (640, 480)),
+            "no game bezel hid the SP frame"
+        );
+        assert!(
+            !covers_panel(Some((720, 480)), (640, 480)),
+            "a canvas-sized bezel hid the SP frame"
+        );
+    }
 
     #[test]
     fn a_full_screen_bezel_covers_the_panel_and_a_half_open_one_shrinks_toward_the_picture() {

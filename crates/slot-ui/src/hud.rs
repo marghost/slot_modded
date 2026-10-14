@@ -233,20 +233,24 @@ impl Hud {
     }
 
     pub fn draw(&self, now: Millis, out: &mut Vec<Draw>) {
+        self.draw_within(now, [0.0, 0.0, OUT_W as f32, OUT_H as f32], out);
+    }
+
+    pub fn draw_within(&self, now: Millis, area: [f32; 4], out: &mut Vec<Draw>) {
         let alpha = self.alpha(now);
         let toast = self.toast_alpha(now);
         if alpha > 0.0 || toast > 0.0 {
             out.push(Draw::Rect {
-                x: 0.0,
-                y: 0.0,
-                w: OUT_W as f32,
+                x: area[0],
+                y: area[1],
+                w: area[2],
                 h: PLATE_H,
                 colour: faded(PLATE, alpha.max(toast)),
             });
             if toast > 0.0 {
-                self.draw_toast(now, out);
+                self.draw_toast(now, area, out);
             } else {
-                self.draw_bar(alpha, out);
+                self.draw_bar(alpha, area, out);
             }
         }
         let link = self
@@ -255,20 +259,20 @@ impl Hud {
             .and_then(|i| self.link_faces.get(i).copied());
         let ff = ff_badge(self.ff).and_then(|i| self.icons.get(i.index()).copied());
         if let Some(tex) = link.or(ff) {
-            self.place_badge(tex, out);
+            self.place_badge(tex, area, out);
         }
         if let Some(since) = self.alarm {
             self.draw_alarm(now.saturating_sub(since), out);
         }
     }
 
-    fn draw_bar(&self, alpha: f32, out: &mut Vec<Draw>) {
-        let x = (OUT_W as f32 - BAR_W) / 2.0;
+    fn draw_bar(&self, alpha: f32, area: [f32; 4], out: &mut Vec<Draw>) {
+        let x = area[0] + (area[2] - BAR_W) / 2.0;
         if let Some(tex) = self.icon() {
             let (w, h) = icon_box(HUD_ICON_PX);
             out.push(Draw::Tex {
                 x: x - ICON_GAP - w as f32,
-                y: (PLATE_H - h as f32) / 2.0,
+                y: area[1] + (PLATE_H - h as f32) / 2.0,
                 w: w as f32,
                 h: h as f32,
                 tex,
@@ -277,24 +281,25 @@ impl Hud {
         }
         out.push(Draw::Rect {
             x,
-            y: BAR_Y,
+            y: area[1] + BAR_Y,
             w: BAR_W,
             h: BAR_H,
             colour: faded(TRACK, alpha),
         });
         out.push(Draw::Rect {
             x,
-            y: BAR_Y,
+            y: area[1] + BAR_Y,
             w: BAR_W * self.fraction(),
             h: BAR_H,
             colour: faded(FILL, alpha),
         });
     }
 
-    fn place_badge(&self, tex: TexId, out: &mut Vec<Draw>) {
+    fn place_badge(&self, tex: TexId, area: [f32; 4], out: &mut Vec<Draw>) {
         let (w, h) = icon_box(HUD_ICON_PX);
         let (w, h) = (w as f32, h as f32);
         let (x, y) = badge_at(w, h);
+        let (x, y) = (x - (OUT_W as f32 - area[0] - area[2]), y + area[1]);
         out.push(Draw::Tex {
             x,
             y,
@@ -328,7 +333,7 @@ impl Hud {
         });
     }
 
-    fn draw_toast(&self, now: Millis, out: &mut Vec<Draw>) {
+    fn draw_toast(&self, now: Millis, area: [f32; 4], out: &mut Vec<Draw>) {
         let alpha = self.toast_alpha(now);
         if alpha <= 0.0 {
             return;
@@ -344,6 +349,10 @@ impl Hud {
             return;
         };
         let (x, y, w, h) = toast_rect(said);
+        let (x, y) = match said.alarm() {
+            true => (x, y),
+            false => (area[0] + (area[2] - w) / 2.0, area[1] + y),
+        };
         out.push(Draw::Tex {
             x,
             y,

@@ -207,8 +207,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
             startup_screen: StartupScreen::Gba,
-            bezel_gb: BezelPick::None,
-            bezel_gbc: BezelPick::None,
+            bezel_gb: BezelPick::Shipped,
+            bezel_gbc: BezelPick::Shipped,
         }
     );
 }
