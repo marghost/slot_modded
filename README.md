@@ -29,6 +29,18 @@ fork is not tested on them.
 
 [User guide](https://slot-cfw.fyi) · [Changelog](CHANGELOG.md) · [Wiki: settings, SD card files, RG35XXSP notes](https://github.com/marghost/slot_modded/wiki)
 
+# Documentation: the [wiki](https://github.com/marghost/slot_modded/wiki)
+
+Everything technical lives in the wiki, one short page per topic:
+
+| Page | What it contains |
+|---|---|
+| [Settings and Controls](https://github.com/marghost/slot_modded/wiki/Settings-and-Controls) | Every button and settings row the fork adds, with values and defaults |
+| [SD Card Files](https://github.com/marghost/slot_modded/wiki/SD-Card-Files) | Files you can add to the card (favorites, recents, boot logo, sticker, bezels) and the `slot.state` keys |
+| [RG35XXSP](https://github.com/marghost/slot_modded/wiki/RG35XXSP) | How the 640×480 screen is laid out, with pixel positions, and what is tuned for it |
+| [Troubleshooting](https://github.com/marghost/slot_modded/wiki/Troubleshooting) | Where the logs are, common surprises, going back to the original slot |
+| [Building](https://github.com/marghost/slot_modded/wiki/Building) | Run on a PC, build for the console, run the tests |
+
 # What's new
 
 | Feature | How to get there |
