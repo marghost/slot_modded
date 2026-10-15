@@ -116,3 +116,22 @@ fn a_garbled_recent_line_is_skipped_and_the_rest_kept() {
         [recent(Platform::Gba, "Emerald")]
     );
 }
+
+#[test]
+fn favorites_show_by_default_and_a_hidden_shelf_survives_a_restart() {
+    let d = tmp_root();
+    let mut s = clocked();
+    assert!(s.show_favorites);
+    s.show_favorites = false;
+    write_slot_state(d.path(), &s).unwrap();
+    assert!(!read_slot_state(d.path()).show_favorites);
+    let path = d.path().join("Config/slot.state");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let old: String = text
+        .lines()
+        .filter(|l| !l.starts_with("show_favorites="))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(&path, old).unwrap();
+    assert!(read_slot_state(d.path()).show_favorites);
+}

@@ -45,10 +45,11 @@ pub enum QuickRow {
     GbBezel,
     GbcBezel,
     PlayCheatSheet,
+    Favorites,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 39] = [
+    pub const ALL: [QuickRow; 40] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -88,6 +89,7 @@ impl QuickRow {
         QuickRow::GbBezel,
         QuickRow::GbcBezel,
         QuickRow::PlayCheatSheet,
+        QuickRow::Favorites,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -98,11 +100,12 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const GENERAL: [QuickRow; 6] = [
+    pub const GENERAL: [QuickRow; 7] = [
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
         QuickRow::Theme,
         QuickRow::Recents,
+        QuickRow::Favorites,
         QuickRow::StartupScreen,
         QuickRow::DateTime,
     ];
@@ -175,6 +178,7 @@ impl QuickRow {
             | QuickRow::DateTime
             | QuickRow::Theme
             | QuickRow::Recents
+            | QuickRow::Favorites
             | QuickRow::StartupScreen => &QuickRow::GENERAL,
             QuickRow::Resume
             | QuickRow::States
@@ -281,6 +285,7 @@ impl QuickRow {
             QuickRow::GbBezel => "GB",
             QuickRow::GbcBezel => "GBC",
             QuickRow::PlayCheatSheet => "Button Cheat Sheet",
+            QuickRow::Favorites => "Favorites",
         }
     }
 

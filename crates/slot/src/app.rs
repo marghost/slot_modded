@@ -719,7 +719,10 @@ impl App {
     }
 
     fn refresh_collections(&mut self) {
-        let favorites = self.collections.favorite_carts(self.carts());
+        let favorites = match self.state.show_favorites {
+            true => self.collections.favorite_carts(self.carts()),
+            false => Vec::new(),
+        };
         let at = self.shelf_of(ShelfKind::Favorites);
         let freed = self.shelves[at].1.replace_carts(favorites);
         self.retired_faces.extend(freed);
@@ -1016,6 +1019,11 @@ impl App {
             QuickRow::Rewind => Some(QuickValue::flag(self.state.rewind)),
             QuickRow::RunAhead => QuickValue::frames(self.state.runahead),
             QuickRow::Recents => Some(if self.state.show_recents {
+                QuickValue::Show
+            } else {
+                QuickValue::Hide
+            }),
+            QuickRow::Favorites => Some(if self.state.show_favorites {
                 QuickValue::Show
             } else {
                 QuickValue::Hide
@@ -2250,6 +2258,7 @@ impl App {
             | QuickRow::GbcBezel
             | QuickRow::Theme
             | QuickRow::Recents
+            | QuickRow::Favorites
             | QuickRow::Wallpaper
             | QuickRow::WallpaperTint
             | QuickRow::Resume
@@ -2294,6 +2303,12 @@ impl App {
         if row == QuickRow::Recents {
             self.state.show_recents = !self.state.show_recents;
             self.restock_recents();
+            self.persist();
+            return;
+        }
+        if row == QuickRow::Favorites {
+            self.state.show_favorites = !self.state.show_favorites;
+            self.refresh_collections();
             self.persist();
             return;
         }
@@ -2355,6 +2370,7 @@ impl App {
             QuickRow::WallpaperTint => s.wallpaper_tint = s.wallpaper_tint.step(right),
             QuickRow::Wallpaper
             | QuickRow::Recents
+            | QuickRow::Favorites
             | QuickRow::DateTime
             | QuickRow::CheatSheet
             | QuickRow::About

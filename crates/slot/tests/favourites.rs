@@ -476,3 +476,59 @@ fn a_hidden_recents_startup_screen_opens_the_next_shelf_with_games() {
     let a = boot_with_startup(&d, StartupScreen::Recents);
     assert_eq!(a.shelf_kind(), ShelfKind::Platform(Platform::Gba));
 }
+
+fn flip_favorites(a: &mut App) {
+    a.apply(Action::QuickMenu);
+    for _ in 0..QuickRow::General.position(&[]) {
+        press(a, Btn::Down);
+    }
+    press(a, Btn::A);
+    for _ in 0..QuickRow::Favorites.position(a.hidden_rows()) {
+        press(a, Btn::Down);
+    }
+    assert_eq!(a.quick_menu(), Some(QuickRow::Favorites));
+    press(a, Btn::Right);
+    while a.quick_menu().is_some() {
+        press(a, Btn::B);
+    }
+}
+
+#[test]
+fn hiding_favorites_drops_the_shelf_and_showing_brings_it_back() {
+    let d = tmp_root_with_carts(&["Alpha", "Beta"]);
+    let mut a = boot(d.path());
+    press(&mut a, Btn::Y);
+    assert_eq!(a.quick_value(QuickRow::Favorites), Some(QuickValue::Show));
+    flip_favorites(&mut a);
+    assert_eq!(a.quick_value(QuickRow::Favorites), Some(QuickValue::Hide));
+    assert!(!read_slot_state(d.path()).show_favorites);
+    press(&mut a, Btn::L1);
+    assert_ne!(
+        a.shelf_kind(),
+        ShelfKind::Favorites,
+        "a hidden shelf showed"
+    );
+    assert!(
+        a.is_favorite(a.selected_cart().unwrap()),
+        "the heart was lost"
+    );
+    flip_favorites(&mut a);
+    assert!(read_slot_state(d.path()).show_favorites);
+    press(&mut a, Btn::L1);
+    assert_eq!(a.shelf_kind(), ShelfKind::Favorites);
+}
+
+#[test]
+fn hidden_favorites_stay_hidden_after_a_restart() {
+    let d = tmp_root_with_carts(&["Alpha", "Beta"]);
+    {
+        let mut a = boot(d.path());
+        press(&mut a, Btn::Y);
+    }
+    let mut s = read_slot_state(d.path());
+    s.show_favorites = false;
+    write_slot_state(d.path(), &s).unwrap();
+    let mut a = boot(d.path());
+    press(&mut a, Btn::L1);
+    assert_ne!(a.shelf_kind(), ShelfKind::Favorites);
+}

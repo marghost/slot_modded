@@ -226,6 +226,7 @@ pub struct SlotState {
     pub wallpaper: WallpaperPick,
     pub wallpaper_tint: WallpaperTint,
     pub show_recents: bool,
+    pub show_favorites: bool,
     pub recents: Vec<Recent>,
 }
 
@@ -374,6 +375,7 @@ impl Default for SlotState {
             wallpaper: WallpaperPick::Default,
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
+            show_favorites: true,
             recents: Vec::new(),
         }
     }
@@ -468,6 +470,7 @@ wallpaper={}
     text.push_str(&format!("shader_gbc={}\n", s.shader_gbc.name()));
     text.push_str(&format!("wallpaper_tint={}\n", s.wallpaper_tint.key()));
     text.push_str(&format!("show_recents={}\n", s.show_recents as u8));
+    text.push_str(&format!("show_favorites={}\n", s.show_favorites as u8));
     for r in &s.recents {
         text.push_str(&format!("recent={}/{}\n", platform_key(r.platform), r.stem));
     }
@@ -510,6 +513,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut wallpaper = None;
     let mut wallpaper_tint = None;
     let mut show_recents = None;
+    let mut show_favorites = None;
     let mut recents: Vec<Recent> = Vec::new();
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
@@ -552,6 +556,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "wallpaper" => wallpaper = Some(WallpaperPick::parse(value)),
             "wallpaper_tint" => wallpaper_tint = WallpaperTint::parse(value),
             "show_recents" => show_recents = flag(value),
+            "show_favorites" => show_favorites = flag(value),
             "recent" => recents.extend(recent_value(value)),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             "shader_gbc" => shader_gbc = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
@@ -602,6 +607,7 @@ fn parse(text: &str) -> Option<SlotState> {
         wallpaper: wallpaper.unwrap_or(fallback.wallpaper),
         wallpaper_tint: wallpaper_tint.unwrap_or(fallback.wallpaper_tint),
         show_recents: show_recents.unwrap_or(fallback.show_recents),
+        show_favorites: show_favorites.unwrap_or(fallback.show_favorites),
         recents: recents.into_iter().take(RECENTS_MAX).collect(),
     })
 }
