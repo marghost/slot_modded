@@ -1,4 +1,4 @@
-use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
+use slot_gfx::{Canvas, Draw, TexId, OUT_H};
 
 use crate::sticker::STICKER_H;
 use crate::text;
@@ -6,7 +6,8 @@ use crate::UndoFace;
 
 const AVATAR_PNG: &[u8] = include_bytes!("../assets/avatar.png");
 
-pub const MODDED_TAG: &str = "_modded v3.1";
+pub const MODDED_TAG: &str = "_modded";
+pub const MODDED_VERSION: &str = "v1.6.0-mod.4.0";
 pub const MODDED_LINK: &str = "github.com/marghost";
 pub const BADGE_W: u32 = 240;
 pub const BADGE_H: u32 = 122;
@@ -21,6 +22,9 @@ const TAG_SHIFT: (f32, f32) = (24.0, 18.0);
 const EDGE_PX: i32 = 2;
 const INK: [u8; 3] = [244, 245, 249];
 const EDGE: [u8; 3] = [11, 14, 17];
+const VERSION_PX: f32 = 18.0;
+const VERSION_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
+const VERSION_MARGIN: f32 = 16.0;
 
 pub fn modded_badge_face() -> UndoFace {
     let (w, h) = (BADGE_W, BADGE_H);
@@ -51,13 +55,44 @@ pub fn modded_badge_face() -> UndoFace {
     UndoFace { rgba, w, h }
 }
 
-pub fn draw_modded_badge(face: Option<TexId>, out: &mut Vec<Draw>) {
+/// The full release tag, bottom right of the About page.
+pub fn version_face() -> UndoFace {
+    let Some((cov, w, h)) = coverage(MODDED_VERSION, VERSION_PX) else {
+        return UndoFace {
+            rgba: Vec::new(),
+            w: 0,
+            h: 0,
+        };
+    };
+    let rgba = cov
+        .iter()
+        .flat_map(|&a| [VERSION_INK[0], VERSION_INK[1], VERSION_INK[2], a])
+        .collect();
+    UndoFace { rgba, w, h }
+}
+
+pub fn draw_modded_badge(
+    canvas: Canvas,
+    face: Option<TexId>,
+    version: Option<(TexId, u32, u32)>,
+    out: &mut Vec<Draw>,
+) {
+    if let Some((tex, w, h)) = version {
+        out.push(Draw::Tex {
+            x: (canvas.w - VERSION_MARGIN - w as f32).round(),
+            y: (OUT_H as f32 - VERSION_MARGIN - h as f32).round(),
+            w: w as f32,
+            h: h as f32,
+            tex,
+            alpha: 1.0,
+        });
+    }
     let Some(tex) = face else {
         return;
     };
     let below = (OUT_H as f32 + STICKER_H as f32) / 2.0;
     out.push(Draw::Tex {
-        x: (OUT_W as f32 - BADGE_W as f32) / 2.0,
+        x: canvas.centred(BADGE_W as f32).round(),
         y: below + (OUT_H as f32 - below - BADGE_H as f32) / 2.0,
         w: BADGE_W as f32,
         h: BADGE_H as f32,

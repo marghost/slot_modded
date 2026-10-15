@@ -73,7 +73,10 @@ pub use link_art::{
     ARROW_LEFT_X, ARROW_RIGHT_X, ARROW_W, ARROW_Y, CLICKS_H, CLICKS_W, CLICKS_X, CLICKS_Y, PLUG_H,
     PLUG_TIP_X, PLUG_W, PORT_H, PORT_W, PORT_Y,
 };
-pub use modded::{draw_modded_badge, modded_badge_face, BADGE_H, BADGE_W, MODDED_LINK, MODDED_TAG};
+pub use modded::{
+    draw_modded_badge, modded_badge_face, version_face, BADGE_H, BADGE_W, MODDED_LINK, MODDED_TAG,
+    MODDED_VERSION,
+};
 pub use plate::{
     arrows_hint_coloured, arrows_hint_face, arrows_hint_width, cap_width, centred_hints,
     hint_coloured, hint_face, hint_quad, hint_row, hint_width, title_face, word_face, word_ink,

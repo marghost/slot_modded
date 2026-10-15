@@ -342,6 +342,7 @@ pub struct App {
     game_bezel_hole: Option<[f32; 4]>,
     panel: (u32, u32),
     modded_face: Option<TexId>,
+    version_face: Option<(TexId, u32, u32)>,
     cheat_sheet_face: Option<TexId>,
     quick_wallpaper_faces: Option<[(TexId, u32, u32); 2]>,
     quick_palette_faces: Option<[(TexId, u32, u32); 2]>,
@@ -523,6 +524,7 @@ impl App {
             game_bezel_hole: None,
             panel: (OUT_W, OUT_H),
             modded_face: None,
+            version_face: None,
             cheat_sheet_face: None,
             quick_wallpaper_faces: None,
             quick_palette_faces: None,
@@ -1100,8 +1102,9 @@ impl App {
         self.platform
     }
 
-    pub fn set_modded_face(&mut self, face: TexId) {
+    pub fn set_modded_face(&mut self, face: TexId, version: (TexId, u32, u32)) {
         self.modded_face = Some(face);
+        self.version_face = Some(version);
     }
 
     pub fn set_quick_wallpaper_faces(&mut self, dim: (TexId, u32, u32), lit: (TexId, u32, u32)) {
@@ -3104,7 +3107,7 @@ impl App {
             Phase::About => {
                 slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
                 draw_sticker(self.canvas(), self.sticker_face, out);
-                draw_modded_badge(self.modded_face, out);
+                draw_modded_badge(self.canvas(), self.modded_face, self.version_face, out);
                 return;
             }
             Phase::CheatSheet { .. } => {

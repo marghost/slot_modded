@@ -13,9 +13,9 @@ use slot_ui::{
     modded_badge_face, photo_face, quick_caret_face, quick_label_face, quick_legend_faces,
     quick_pointer_face, quick_value_face, rebuild_count_face, rebuild_title_face,
     set_clock_hint_face, slot_back, slot_back_light, slot_front, slot_front_light, socket_face,
-    sticker_face, title_face, toast_face, wallpaper_face, word_ink, CartFace, GameBezelFace,
-    GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue, RebuildScreen,
-    StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
+    sticker_face, title_face, toast_face, version_face, wallpaper_face, word_ink, CartFace,
+    GameBezelFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue,
+    RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
 };
 
 use crate::app::{App, LinkRow, Phase};
@@ -267,7 +267,13 @@ impl Frontend {
         self.session.app_mut().set_favorite_face(favorite);
         let modded = modded_badge_face();
         let modded = compositor.create_texture(modded.w, modded.h, &modded.rgba);
-        self.session.app_mut().set_modded_face(modded);
+        let version = version_face();
+        let version = (
+            compositor.create_texture(version.w, version.h, &version.rgba),
+            version.w,
+            version.h,
+        );
+        self.session.app_mut().set_modded_face(modded, version);
         let board = slot_ui::cart_backing(None);
         let board = compositor.create_texture(board.w, board.h, &board.rgba);
         self.session.app_mut().set_cart_backing(board);

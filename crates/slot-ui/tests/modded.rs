@@ -1,5 +1,6 @@
 use slot_ui::{
-    draw_modded_badge, modded_badge_face, Draw, TexId, BADGE_H, BADGE_W, OUT_H, OUT_W, STICKER_H,
+    draw_modded_badge, modded_badge_face, version_face, Canvas, Draw, TexId, BADGE_H, BADGE_W,
+    OUT_H, STICKER_H,
 };
 
 fn pixel(face: &slot_ui::UndoFace, x: u32, y: u32) -> [u8; 4] {
@@ -38,17 +39,44 @@ fn the_badge_is_a_round_picture_with_the_tag_across_it() {
 
 #[test]
 fn the_badge_sits_centred_between_the_sticker_and_the_bottom() {
+    for canvas in [Canvas::FRAMED, Canvas { w: 640.0, h: 480.0 }] {
+        let mut out = Vec::new();
+        draw_modded_badge(canvas, Some(TexId::from_raw(7)), None, &mut out);
+        let [Draw::Tex { x, y, w, h, .. }] = out[..] else {
+            panic!("{out:?}");
+        };
+        assert_eq!(x + w / 2.0, canvas.w / 2.0);
+        assert!(
+            y >= (OUT_H + STICKER_H) as f32 / 2.0,
+            "the badge covers the sticker"
+        );
+        assert!(y + h <= OUT_H as f32, "the badge runs off the screen");
+    }
+}
+
+#[test]
+fn the_version_sits_in_the_bottom_right_corner() {
+    let face = version_face();
+    assert!(face.w > 0 && face.rgba.chunks(4).any(|p| p[3] > 200));
+    let canvas = Canvas { w: 640.0, h: 480.0 };
     let mut out = Vec::new();
-    draw_modded_badge(Some(TexId::from_raw(7)), &mut out);
+    draw_modded_badge(
+        canvas,
+        None,
+        Some((TexId::from_raw(8), face.w, face.h)),
+        &mut out,
+    );
     let [Draw::Tex { x, y, w, h, .. }] = out[..] else {
         panic!("{out:?}");
     };
-    assert_eq!(x + w / 2.0, OUT_W as f32 / 2.0);
     assert!(
-        y >= (OUT_H + STICKER_H) as f32 / 2.0,
-        "the badge covers the sticker"
+        x + w <= canvas.w && x + w >= canvas.w - 24.0,
+        "not at the right edge"
     );
-    assert!(y + h <= OUT_H as f32, "the badge runs off the screen");
+    assert!(
+        y + h <= OUT_H as f32 && y + h >= OUT_H as f32 - 24.0,
+        "not at the bottom"
+    );
 }
 
 #[test]
