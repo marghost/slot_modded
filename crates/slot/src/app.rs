@@ -1457,7 +1457,7 @@ impl App {
         if !matches!(self.phase, Phase::Playing { .. } | Phase::Ejecting { .. }) {
             return None;
         }
-        if self.game_menu.is_some() || self.in_game_menu.is_some() {
+        if self.game_menu.is_some() || self.in_game_menu_shown().is_some() {
             return None;
         }
         if !matches!(self.platform, Platform::Gb | Platform::Gbc) {
@@ -2189,7 +2189,7 @@ impl App {
         self.in_game_menu = to;
     }
 
-    fn in_game_menu_shown(&self) -> Option<QuickRow> {
+    pub fn in_game_menu_shown(&self) -> Option<QuickRow> {
         match self.menu_tap {
             Some((at, None)) if self.now().saturating_sub(at) < MENU_REVEAL_MS => None,
             _ => self.in_game_menu,

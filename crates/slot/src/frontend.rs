@@ -938,7 +938,7 @@ fn sync_clock(app: &mut App, compositor: &mut Compositor, clocks: &mut Clocks) {
 }
 
 fn sync_battery_badge(app: &App, compositor: &mut Compositor, shown: &mut Option<Battery>) {
-    let battery = app.battery().filter(|_| app.in_game_menu().is_none());
+    let battery = app.battery().filter(|_| app.in_game_menu_shown().is_none());
     if battery == *shown {
         return;
     }
