@@ -1,5 +1,27 @@
 # Changelog
 
+Fork versions read `v<slot version>-mod.<feature>.<update>`: the first mod number goes up with new fork features, the
+second with upstream merges, fixes and small changes.
+
+## [v1.6.0-mod.3.1](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.3.1) (marghost fork)
+
+Changes made in this fork since v1.6.0-mod.3 (2026-10-14). Written by Claude Opus (AI), see the
+[Fork AI Disclosure](README.md#fork-ai-disclosure):
+
+- Merged the original slot's latest work (main at f63b009, not released yet): hand-drawn carts, slot and shelf by
+  Markus Maribu with a light and a dark theme and wallpapers, a General settings page, an in-game menu on a tap of
+  MENU, a Shader and a Color Correction row for each system, held directions repeating in menus, logs in a `Logs`
+  folder, and the original's own Recents shelf.
+- Recents is now the original's: kept in `Config/slot.state` and shown or hidden with MENU → General → Recents. An
+  existing `Config/recents.txt` is moved in once, with Recents switched on, and then removed.
+- Shelves now run Recents, Favorites, GBA, GB, GBC.
+- Settings moved: Startup Screen is on the General page, Button Cheat Sheet sits above About, Keep FF Pitch is also on
+  the in-game Gameplay page. The scrolling settings pages are gone, as every page now fits on the screen.
+- The in-game menu has a Button Cheat Sheet row. The GB/GBC bezel and the battery badge step aside while the menu is
+  open.
+- Button Cheat Sheet: lists MENU (tap) for the in-game menu, and B closes it (the footer used to say hold MENU).
+- Settings → About reads "_modded v3.1".
+
 ## [v1.6.0-mod.3](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.3) (marghost fork)
 
 Changes made in this fork since v1.6.0-mod.2 (2026-10-13). Written by Claude Opus (AI), see the

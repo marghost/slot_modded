@@ -6,7 +6,7 @@ use crate::UndoFace;
 
 const AVATAR_PNG: &[u8] = include_bytes!("../assets/avatar.png");
 
-pub const MODDED_TAG: &str = "_modded v3";
+pub const MODDED_TAG: &str = "_modded v3.1";
 pub const MODDED_LINK: &str = "github.com/marghost";
 pub const BADGE_W: u32 = 240;
 pub const BADGE_H: u32 = 122;

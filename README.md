@@ -46,18 +46,17 @@ Everything technical lives in the wiki, one page per topic all the documentation
 |---|---|
 | **Battery %** in game | Always on, any game and any console, bottom-right of the bezel (4:3 screens like the RG35XXSP are compatible). Green → red as it drains. |
 | **Button Cheat Sheet** | Settings: MENU → **Button Cheat Sheet**.  This will tell you all the hotkeys! |
-| **Button Cheat Sheet** in game | Save state switcher: double-tap MENU → **START** |
-| **Shelves** |Other name for folder, in this modded version you have access to a few of them: GBA, GB, GBC, Favorites or Recents. |
-| **Favorites** | On the shelf, **Y** adds or removes a game to your favorites; a heart marks it. **R1** past GBC opens the Favorites shelf. To set your own icon on the cartridge: put your PNG at `System/favorite.png`. |
-| **Recents** | **R1** to the Recents shelf: your last 10 games, newest first |
-| **Startup Screen** | Settings: MENU → **Startup Screen** (GBA, GB, GBC, Favorites or Recents).  Choose folder/shelf at boot. |
+| **Button Cheat Sheet** in game | In-game menu: tap MENU → **Button Cheat Sheet**, or in the save state switcher (double-tap MENU) → **START** |
+| **Shelves** | Other name for folder, in this modded version you have access to a few of them: Recents, Favorites, GBA, GB or GBC. **L1/R1** switch shelf. |
+| **Favorites** | On the shelf, **Y** adds or removes a game to your favorites; a heart marks it. **L1** from GBA opens the Favorites shelf. To set your own icon on the cartridge: put your PNG at `System/favorite.png`. |
+| **Recents** | The first shelf: your last 10 games, newest first. Settings: MENU → General → **Recents** to show or hide it |
+| **Startup Screen** | Settings: MENU → General → **Startup Screen** (Recents, Favorites, GBA, GB or GBC).  Choose folder/shelf at boot. |
 | **Shelf memory** | Automatic: each shelf opens on the game you left it on, also after a restart |
-| **Keep FF Pitch** | Settings: MENU → Gameplay → **Keep FF Pitch**, with Fast Forward Sound on.  This lower the pitch of the game music when you FF.  |
+| **Keep FF Pitch** | Settings: MENU → Gameplay → **Keep FF Pitch** (also in game: MENU → Settings → Gameplay), with Fast Forward Sound on.  This lower the pitch of the game music when you FF.  |
 | **Low-battery warning** | Automatic alerts, at 15% and 10% |
 | **Standby** | Automatic: with the lid shut, slot stops drawing screen image to save battery |
 | **GB / GBC bezels** | On by default in GB and GBC games. Settings: MENU → Screen → **GB / GBC Bezels** to change or turn off |
 | **Faster scrolling** | Hold Left or Right for 2 s on a shelf of 60+ games: it moves 3 carts a step |
-| ***Scrolling settings*** | Long settings pages scroll; ▲ ▼ show there is more.  Technical feature to handle longer menu lists. |
 
 # Try this fork on your device
 
