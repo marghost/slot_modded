@@ -114,6 +114,11 @@ short:
 </p>
 
 <p align="center">
+<img src=".github/resources/screenshots/fork-startingpage.png" width="60%" alt="The settings menu with the Startup Screen row selected and set to Recents"><br>
+<em>Startup Screen: pick the shelf slot opens on at boot.</em>
+</p>
+
+<p align="center">
 <img src=".github/resources/screenshots/fork-keep-ff-pitch.png" width="60%" alt="The Gameplay settings page: Keep FF Pitch selected under Fast Forward Sound, Run-Ahead, and a down arrow under the last visible row"><br>
 <em>The Gameplay page: Keep FF Pitch, and ▼ when more settings are below.</em>
 </p>
