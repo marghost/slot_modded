@@ -16,8 +16,8 @@
 An **unofficial fork** of [slot](https://github.com/BrandonKowalski/slot) by Brandon Kowalski. Not affiliated with or endorsed by him: please report this fork's problems here. Same license, GPL-3.0-or-later.
 
 Some features are adapted from other slot forks and pull requests: [slot.advance](https://github.com/suprsomething/slot.advance)
-by suprsomething (battery warnings, standby, favorites), [snowslots](https://github.com/chiyuki0325/snowslots) by
-chiyuki0325 (fast-forward pitch), [jgraving/slot](https://github.com/jgraving/slot) by jgraving (favorites and recents),
+by suprsomething (battery warnings, standby, favorite heart), [snowslots](https://github.com/chiyuki0325/snowslots) by
+chiyuki0325 (fast-forward pitch), [jgraving/slot](https://github.com/jgraving/slot) by jgraving (link play from the Favorites and Recents shelves),
 Markus Maribu's [GB/GBC bezels](https://github.com/BrandonKowalski/slot/pull/77), felipecpaiva's
 [faster boot](https://github.com/BrandonKowalski/slot/pull/75) and [stevolarn/slot](https://github.com/stevolarn/slot)
 (faster scrolling). Thank you!
@@ -47,16 +47,15 @@ Everything technical lives in the wiki, one page per topic all the documentation
 | **Battery %** in game | Always on, any game and any console, bottom-right of the bezel (4:3 screens like the RG35XXSP are compatible). Green → red as it drains. |
 | **Button Cheat Sheet** | Settings: MENU → **Button Cheat Sheet**.  This will tell you all the hotkeys! |
 | **Button Cheat Sheet** in game | In-game menu: tap MENU → **Button Cheat Sheet**, or in the save state switcher (double-tap MENU) → **START** (Button Help) |
-| **Shelves** | Other name for folder, in this modded version you have access to a few of them: Recents, Favorites, GBA, GB or GBC. **L1/R1** switch shelf. |
-| **Favorites** | On the shelf, **Y** adds or removes a game to your favorites; a heart marks it. **L1** from GBA opens the Favorites shelf. To set your own icon on the cartridge: put your PNG at `System/favorite.png`. Settings: MENU → General → **Favorites** to show or hide the shelf |
-| **Recents** | The first shelf: your last 10 games, newest first. Settings: MENU → General → **Recents** to show or hide it |
+| **Favorite heart** | A pixel heart marks your favorite games on the cartridge, and a banner confirms when **Y** adds or removes one. Your own icon: put your PNG at `System/favorite.png` |
+| **Show / hide Favorites** | Settings: MENU → General → **Favorites**. Your hearts are kept while the shelf is hidden |
 | **Startup Screen** | Settings: MENU → General → **Startup Screen** (Recents, Favorites, GBA, GB or GBC).  Choose folder/shelf at boot. |
 | **Shelf memory** | Automatic: each shelf opens on the game you left it on, also after a restart |
 | **Keep FF Pitch** | Settings: MENU → Gameplay → **Keep FF Pitch** (also in game: MENU → Settings → Gameplay), with Fast Forward Sound on.  This lower the pitch of the game music when you FF.  |
 | **Low-battery warning** | Automatic alerts, at 15% and 10% |
 | **Standby** | Automatic: with the lid shut, slot stops drawing screen image to save battery |
 | **GB / GBC bezels** | On by default in GB and GBC games. Settings: MENU → Screen → **GB / GBC Bezels** to change or turn off |
-| **Fullscreen menus** | Automatic on 4:3 screens like the RG35XXSP: the shelves, Settings, About, Date & Time and the Button Cheat Sheet fill the whole screen, no black strip at the bottom |
+| **Fullscreen menus** | Automatic on 4:3 screens like the RG35XXSP: Settings, About, Date & Time and the Button Cheat Sheet fill the whole screen, no black strip at the bottom |
 | **Faster scrolling** | Hold Left or Right for 2 s on a shelf of 60+ games: it moves 3 carts a step |
 
 # Try this fork on your device
