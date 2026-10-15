@@ -1251,3 +1251,133 @@ fn a_restocked_shelf_keeps_each_carts_face_and_interior_and_hands_back_the_rest(
     assert_eq!(s.face(0), None);
     assert_eq!(s.take_interior(0), None);
 }
+
+fn mixed_shelf(platforms: &[Platform]) -> Shelf {
+    let mut s = Shelf::new(
+        platforms
+            .iter()
+            .enumerate()
+            .map(|(i, p)| Cart {
+                platform: *p,
+                stem: format!("Mixed {i}"),
+                rom: match p {
+                    Platform::Gba => format!("Games/GBA/Mixed {i}.gba"),
+                    _ => format!("Games/GB/Mixed {i}.gb"),
+                }
+                .into(),
+                label: None,
+                code: String::new(),
+                shell: None,
+                title: format!("MIXED {i}"),
+            })
+            .collect(),
+    );
+    s.set_faces(
+        (0..platforms.len())
+            .map(|i| TexId::from_raw(60 + i))
+            .collect(),
+    );
+    s
+}
+
+fn face_spans(s: &Shelf, n: usize) -> Vec<Option<(f32, f32)>> {
+    let mut out = Vec::new();
+    s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
+    (0..n)
+        .map(|i| {
+            out.iter().find_map(|d| match *d {
+                Draw::Tex { x, w, tex, .. } if tex == TexId::from_raw(60 + i) => Some((x, x + w)),
+                _ => None,
+            })
+        })
+        .collect()
+}
+
+#[test]
+fn a_game_boy_pak_beside_a_gba_cart_sits_the_gap_two_gba_carts_do() {
+    let gba = mixed_shelf(&[Platform::Gba, Platform::Gba, Platform::Gba]);
+    let mut gba = gba;
+    gba.select(1);
+    settle(&mut gba);
+    let spans = face_spans(&gba, 3);
+    let gba_gap = spans[1].unwrap().0 - spans[0].unwrap().1;
+    assert!(gba_gap > 10.0, "two GBA carts touch: {gba_gap}");
+
+    let order = [
+        Platform::Gb,
+        Platform::Gba,
+        Platform::Gb,
+        Platform::Gba,
+        Platform::Gb,
+    ];
+    for selected in [1, 2] {
+        let mut s = mixed_shelf(&order);
+        s.select(selected);
+        settle(&mut s);
+        let spans = face_spans(&s, 5);
+        let at = |i: usize| spans[i].expect("a neighbour of the selected cart is not drawn");
+        for (a, b) in [(selected - 1, selected), (selected, selected + 1)] {
+            let gap = at(b).0 - at(a).1;
+            assert!(
+                (gap - gba_gap).abs() < 0.5,
+                "with cart {selected} selected, carts {a} and {b} sit {gap} apart, two GBA carts {gba_gap}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_shelf_of_game_boy_paks_keeps_its_own_gap() {
+    let mut s = mixed_shelf(&[Platform::Gb, Platform::Gb, Platform::Gb]);
+    s.select(1);
+    settle(&mut s);
+    let spans = face_spans(&s, 3);
+    let gap = spans[1].unwrap().0 - spans[0].unwrap().1;
+    let expected = GB_CART_W as f32 * (1.0 - (1.0 + 0.78) / 2.0);
+    assert!(
+        (gap - expected).abs() < 0.5,
+        "two Game Boy paks sit {gap} apart, {expected} before"
+    );
+}
+
+#[test]
+fn a_mixed_row_does_not_jump_when_the_selection_moves() {
+    let order = [
+        Platform::Gb,
+        Platform::Gba,
+        Platform::Gb,
+        Platform::Gba,
+        Platform::Gb,
+    ];
+    let mut s = mixed_shelf(&order);
+    s.select(2);
+    settle(&mut s);
+    let before = face_spans(&s, 5);
+    s.right();
+    let after = face_spans(&s, 5);
+    for i in 1..=3 {
+        let (b, a) = (before[i].unwrap(), after[i].unwrap());
+        assert!(
+            (b.0 - a.0).abs() < 0.01,
+            "cart {i} jumped from {b:?} to {a:?} the moment the selection moved"
+        );
+    }
+}
+
+#[test]
+fn only_a_starred_cart_wears_the_heart() {
+    let heart = TexId::from_raw(9);
+    let mut s = shelf_with(3);
+    s.set_favorite_face(heart);
+    s.mark_starred(|c| c.stem == "Game 1");
+    s.select(1);
+    settle(&mut s);
+    let mut out = Vec::new();
+    s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
+    let hearts = out
+        .iter()
+        .filter(|d| matches!(d, Draw::Tex { tex, .. } if *tex == heart))
+        .count();
+    assert_eq!(hearts, 1, "{out:?}");
+    assert!(s.is_starred(1) && !s.is_starred(0));
+}

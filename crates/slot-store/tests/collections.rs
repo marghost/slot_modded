@@ -1,149 +1,106 @@
-use std::path::PathBuf;
-
 use slot_store::{
-    import_legacy_recents, remove_legacy_recents, Cart, Collections, Platform, Recent, SlotState,
-    RECENTS_MAX,
+    import_legacy_favorites, read_slot_state, remove_legacy_favorites, write_slot_state, Platform,
+    Recent, SlotState,
 };
 
-fn cart(platform: Platform, stem: &str) -> Cart {
-    Cart {
-        platform,
-        stem: stem.into(),
-        rom: PathBuf::from(format!("{stem}.rom")),
-        label: None,
-        title: String::new(),
-        code: String::new(),
-        shell: None,
-    }
-}
-
-#[test]
-fn a_card_without_the_file_has_no_favorites() {
-    let d = tempfile::tempdir().unwrap();
-    assert_eq!(Collections::read(d.path()).unwrap(), Collections::default());
-}
-
-#[test]
-fn favorites_toggle_and_survive_a_restart() {
-    let d = tempfile::tempdir().unwrap();
-    let zelda = cart(Platform::Gba, "Zelda");
-    let mut c = Collections::default();
-    assert!(c.toggle_favorite(&zelda));
-    assert!(c.is_favorite(&zelda));
-    c.write_favorites(d.path()).unwrap();
-    assert_eq!(
-        std::fs::read_to_string(d.path().join("Config/favourites.txt")).unwrap(),
-        "gba/Zelda\n"
-    );
-    let mut back = Collections::read(d.path()).unwrap();
-    assert!(back.is_favorite(&zelda));
-    assert!(!back.toggle_favorite(&zelda));
-    assert!(!back.is_favorite(&zelda));
-}
-
-#[test]
-fn the_same_name_on_two_platforms_is_two_games() {
-    let mut c = Collections::default();
-    c.toggle_favorite(&cart(Platform::Gb, "Tetris"));
-    assert!(c.is_favorite(&cart(Platform::Gb, "Tetris")));
-    assert!(!c.is_favorite(&cart(Platform::Gbc, "Tetris")));
-}
-
-#[test]
-fn favorite_carts_are_sorted_and_missing_games_are_hidden_but_kept() {
-    let mut c = Collections::default();
-    for (p, stem) in [
-        (Platform::Gba, "Zelda"),
-        (Platform::Gb, "Gone"),
-        (Platform::Gbc, "Alleyway"),
-    ] {
-        c.toggle_favorite(&cart(p, stem));
-    }
-    let shelf = [
-        cart(Platform::Gba, "Zelda"),
-        cart(Platform::Gbc, "Alleyway"),
-        cart(Platform::Gba, "Metroid"),
-    ];
-    let stems: Vec<String> = c
-        .favorite_carts(shelf.iter())
-        .into_iter()
-        .map(|c| c.stem)
-        .collect();
-    assert_eq!(stems, ["Alleyway", "Zelda"]);
-    assert_eq!(c.favorites.len(), 3);
-}
-
-#[test]
-fn bad_and_repeated_lines_are_skipped() {
+fn card(file: &str, text: &str) -> tempfile::TempDir {
     let d = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(d.path().join("Config")).unwrap();
-    std::fs::write(
-        d.path().join("Config/favourites.txt"),
-        "gba/Zelda\nnes/Mario\nno slash\ngb/\nGBA/Zelda\ngbc/Pokemon Crystal\r\n",
-    )
-    .unwrap();
-    let c = Collections::read(d.path()).unwrap();
-    let stems: Vec<&str> = c.favorites.iter().map(|k| k.stem.as_str()).collect();
-    assert_eq!(stems, ["Zelda", "Pokemon Crystal"]);
-}
-
-fn old_recents(text: &str) -> tempfile::TempDir {
-    let d = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(d.path().join("Config")).unwrap();
-    std::fs::write(d.path().join("Config/recents.txt"), text).unwrap();
+    std::fs::write(d.path().join("Config").join(file), text).unwrap();
     d
 }
 
+fn game(platform: Platform, stem: &str) -> Recent {
+    Recent {
+        platform,
+        stem: stem.into(),
+    }
+}
+
 #[test]
-fn an_old_recents_file_moves_into_the_state_and_shows_the_shelf() {
-    let d = old_recents("gbc/Pokemon Crystal\ngba/Zelda\nnes/Mario\n");
+fn a_card_without_the_old_file_imports_nothing() {
+    let d = tempfile::tempdir().unwrap();
     let mut s = SlotState::default();
-    assert!(import_legacy_recents(d.path(), &mut s).unwrap());
-    assert!(s.show_recents);
+    assert!(!import_legacy_favorites(d.path(), &mut s).unwrap());
+    assert!(s.favorites.is_empty());
+}
+
+#[test]
+fn old_favourites_move_into_the_state_and_the_file_goes() {
+    let d = card("favourites.txt", "gba/Zelda\ngbc/Pokemon Crystal\n");
+    let mut s = SlotState::default();
+    assert!(import_legacy_favorites(d.path(), &mut s).unwrap());
     assert_eq!(
-        s.recents,
+        s.favorites,
         [
-            Recent {
-                platform: Platform::Gbc,
-                stem: "Pokemon Crystal".into()
-            },
-            Recent {
-                platform: Platform::Gba,
-                stem: "Zelda".into()
-            }
+            game(Platform::Gba, "Zelda"),
+            game(Platform::Gbc, "Pokemon Crystal")
         ]
     );
-    remove_legacy_recents(d.path()).unwrap();
-    assert!(!d.path().join("Config/recents.txt").exists());
-    assert!(!import_legacy_recents(d.path(), &mut s).unwrap());
+    write_slot_state(d.path(), &s).unwrap();
+    remove_legacy_favorites(d.path()).unwrap();
+    assert!(!d.path().join("Config/favourites.txt").exists());
+    assert_eq!(read_slot_state(d.path()).favorites, s.favorites);
 }
 
 #[test]
-fn an_old_recents_file_keeps_only_the_last_ten() {
-    let text: String = (0..15).map(|i| format!("gba/Game {i}\n")).collect();
-    let d = old_recents(&text);
+fn old_favourites_join_the_ones_already_starred() {
+    let d = card("favourites.txt", "gba/Zelda\ngb/Tetris\n");
     let mut s = SlotState::default();
-    import_legacy_recents(d.path(), &mut s).unwrap();
-    assert_eq!(s.recents.len(), RECENTS_MAX);
-    assert_eq!(s.recents[0].stem, "Game 0");
+    s.toggle_favorite(Platform::Gb, "Tetris");
+    import_legacy_favorites(d.path(), &mut s).unwrap();
+    assert_eq!(
+        s.favorites,
+        [game(Platform::Gb, "Tetris"), game(Platform::Gba, "Zelda")]
+    );
 }
 
 #[test]
-fn an_old_recents_file_never_replaces_recents_already_in_the_state() {
-    let d = old_recents("gba/Zelda\n");
+fn bad_and_repeated_old_lines_are_skipped() {
+    let d = card(
+        "favourites.txt",
+        "gba/Zelda\nnes/Mario\nno slash\ngb/\nGBA/Zelda\ngbc/Pokemon Crystal\r\n",
+    );
     let mut s = SlotState::default();
-    s.played(Platform::Gb, "Tetris");
-    assert!(import_legacy_recents(d.path(), &mut s).unwrap());
-    assert!(!s.show_recents);
-    assert_eq!(s.recents.len(), 1);
-    assert_eq!(s.recents[0].stem, "Tetris");
+    import_legacy_favorites(d.path(), &mut s).unwrap();
+    let stems: Vec<&str> = s.favorites.iter().map(|f| f.stem.as_str()).collect();
+    assert_eq!(stems, ["Zelda", "Pokemon Crystal"]);
 }
 
 #[test]
-fn an_empty_old_recents_file_leaves_the_shelf_hidden() {
-    let d = old_recents("");
-    let mut s = SlotState::default();
-    assert!(import_legacy_recents(d.path(), &mut s).unwrap());
-    assert!(!s.show_recents);
-    assert!(s.recents.is_empty());
+fn recents_kept_in_slot_state_by_the_last_release_survive_and_move_to_their_file() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("Config")).unwrap();
+    write_slot_state(d.path(), &SlotState::default()).unwrap();
+    let path = d.path().join("Config/slot.state");
+    let old = std::fs::read_to_string(&path).unwrap();
+    std::fs::write(&path, old + "recent=gba/Zelda\nrecent=gb/Tetris\n").unwrap();
+    let s = read_slot_state(d.path());
+    assert_eq!(
+        s.recents,
+        [game(Platform::Gba, "Zelda"), game(Platform::Gb, "Tetris")]
+    );
+    write_slot_state(d.path(), &s).unwrap();
+    let state = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+    assert!(!state.contains("recent="), "{state}");
+    assert_eq!(
+        std::fs::read_to_string(d.path().join("Config/recents.txt")).unwrap(),
+        "gba/Zelda\ngb/Tetris\n"
+    );
+    assert_eq!(read_slot_state(d.path()).recents, s.recents);
+}
+
+#[test]
+fn the_recents_file_wins_over_old_lines_in_slot_state() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("Config")).unwrap();
+    write_slot_state(d.path(), &SlotState::default()).unwrap();
+    let path = d.path().join("Config/slot.state");
+    let old = std::fs::read_to_string(&path).unwrap();
+    std::fs::write(&path, old + "recent=gba/Zelda\n").unwrap();
+    std::fs::write(d.path().join("Config/recents.txt"), "gbc/Pokemon Crystal\n").unwrap();
+    assert_eq!(
+        read_slot_state(d.path()).recents,
+        [game(Platform::Gbc, "Pokemon Crystal")]
+    );
 }

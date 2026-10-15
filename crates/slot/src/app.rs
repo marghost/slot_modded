@@ -7,10 +7,10 @@ use slot_input::{Action, Btn, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power};
 use slot_retro::LinkChannel;
 use slot_store::{
-    format_stamp, import_legacy_recents, read_slot_state, remove_legacy_recents, scan,
-    write_slot_state, BezelPick, Cart, Collections, Core, GbPalette, Platform, Shader, SlotState,
-    StartupScreen, StateEntry, StateRing, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX,
-    BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, RUN_AHEAD_MAX, VOLUME_MAX,
+    format_stamp, import_legacy_favorites, read_slot_state, remove_legacy_favorites, scan,
+    write_slot_state, BezelPick, Cart, Core, GbPalette, Platform, Shader, SlotState, StartupScreen,
+    StateEntry, StateRing, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS,
+    RING_MAX, RUN_AHEAD_MAX, VOLUME_MAX,
 };
 use slot_ui::{
     board_from, board_x, board_zoom, draw_cheat_sheet, draw_empty_slot, draw_footer, draw_ground,
@@ -39,6 +39,8 @@ pub const SEATED_AT: f32 = INSERT_S - INSERT_HOLD_S;
 pub const EJECT_S: f32 = SEATED_AT;
 
 const EJECT_HOLD_S: f32 = 0.35;
+
+pub const IN_GAME_MENU: Layout = Layout::Native;
 
 const POWER_ON_S: f32 = 0.22;
 
@@ -269,13 +271,38 @@ pub enum Phase {
     },
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Rack {
+    Recents,
+    Favorites,
+    Of(Platform),
+}
+
+impl Rack {
+    fn platform(self) -> Option<Platform> {
+        match self {
+            Rack::Of(p) => Some(p),
+            Rack::Recents | Rack::Favorites => None,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Rack::Recents => "Recents",
+            Rack::Favorites => "Favorites",
+            Rack::Of(p) => p.name(),
+        }
+    }
+}
+
+const RECENTS_AT: usize = 0;
+const FAVORITES_AT: usize = 1;
+
 pub struct App {
     phase: Phase,
-    shelves: Vec<(ShelfKind, Shelf)>,
-    collections: Collections,
-    collections_writable: bool,
-    retired_faces: Vec<TexId>,
+    shelves: Vec<(Rack, Shelf)>,
     shelf_at: usize,
+    orphaned: Vec<TexId>,
     play_held: Option<Millis>,
     held_dir: Option<(Btn, Millis, usize)>,
     refusal: Option<Refusal>,
@@ -359,6 +386,7 @@ pub struct App {
     hud_bolt: Option<TexId>,
     slot_faces: Option<(TexId, TexId)>,
     shelf_platform: slot_ui::Printed,
+    shelf_title: slot_ui::Printed,
     name_pending: bool,
     slot_letter: Option<char>,
     shelf_named: Option<Millis>,
@@ -366,6 +394,7 @@ pub struct App {
     hud: Hud,
     screen: f32,
     lift: f32,
+    eject_overlay: f32,
     game_ready: bool,
     clock: f64,
     power: Option<Power>,
@@ -388,30 +417,6 @@ pub struct App {
     state_writer: crate::state_writer::StateWriter,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum ShelfKind {
-    Platform(Platform),
-    Favorites,
-    Recents,
-}
-
-impl ShelfKind {
-    pub fn name(self) -> &'static str {
-        match self {
-            ShelfKind::Platform(p) => p.name(),
-            ShelfKind::Favorites => "Favorites",
-            ShelfKind::Recents => "Recents",
-        }
-    }
-
-    fn platform(self) -> Option<Platform> {
-        match self {
-            ShelfKind::Platform(p) => Some(p),
-            _ => None,
-        }
-    }
-}
-
 const FACE_AHEAD: i32 = 8;
 const FACE_KEEP: i32 = 12;
 
@@ -422,21 +427,19 @@ pub struct FaceWant {
     pub on_screen: bool,
 }
 
-fn shelves_of(carts: Vec<Cart>) -> Vec<(ShelfKind, Shelf)> {
-    let mut rows: Vec<(Platform, Vec<Cart>)> =
-        Platform::ALL.iter().map(|p| (*p, Vec::new())).collect();
+fn shelves_of(carts: Vec<Cart>) -> Vec<(Rack, Shelf)> {
+    let mut rows: Vec<(Rack, Vec<Cart>)> = [Rack::Recents, Rack::Favorites]
+        .into_iter()
+        .chain(Platform::ALL.iter().map(|p| Rack::Of(*p)))
+        .map(|r| (r, Vec::new()))
+        .collect();
     for cart in carts {
-        if let Some((_, row)) = rows.iter_mut().find(|(p, _)| *p == cart.platform) {
+        if let Some((_, row)) = rows.iter_mut().find(|(r, _)| *r == Rack::Of(cart.platform)) {
             row.push(cart);
         }
     }
-    [ShelfKind::Recents, ShelfKind::Favorites]
-        .map(|k| (k, Shelf::new(Vec::new())))
-        .into_iter()
-        .chain(
-            rows.into_iter()
-                .map(|(platform, carts)| (ShelfKind::Platform(platform), Shelf::new(carts))),
-        )
+    rows.into_iter()
+        .map(|(rack, carts)| (rack, Shelf::new(carts)))
         .collect()
 }
 
@@ -454,9 +457,7 @@ impl App {
             state_writer,
             phase: Phase::Shelf,
             shelves,
-            collections: Collections::default(),
-            collections_writable: true,
-            retired_faces: Vec::new(),
+            orphaned: Vec::new(),
             shelf_at,
             play_held: None,
             held_dir: None,
@@ -541,6 +542,7 @@ impl App {
             hud_bolt: None,
             slot_faces: None,
             shelf_platform: slot_ui::Printed::default(),
+            shelf_title: slot_ui::Printed::default(),
             name_pending: false,
             slot_letter: None,
             shelf_named: None,
@@ -548,6 +550,7 @@ impl App {
             hud: Hud::new(),
             screen: 0.0,
             lift: 1.0,
+            eject_overlay: 0.0,
             game_ready: false,
             clock: 0.0,
             power: None,
@@ -577,14 +580,7 @@ impl App {
         let mut app = App::new(carts);
         app.root = Some(root.to_path_buf());
         app.state = read_slot_state(root);
-        app.import_legacy_recents(root);
-        match Collections::read(root) {
-            Ok(collections) => app.collections = collections,
-            Err(e) => {
-                eprintln!("slot: favorites: {e}, not saving them this session");
-                app.collections_writable = false;
-            }
-        }
+        app.import_legacy_favorites(root);
         app.refresh_collections();
         if app.state.clock_set {
             app.start();
@@ -594,18 +590,18 @@ impl App {
         app
     }
 
-    fn import_legacy_recents(&mut self, root: &Path) {
-        match import_legacy_recents(root, &mut self.state) {
+    fn import_legacy_favorites(&mut self, root: &Path) {
+        match import_legacy_favorites(root, &mut self.state) {
             Ok(false) => {}
             Ok(true) => match write_slot_state(root, &self.state) {
                 Ok(()) => {
-                    if let Err(e) = remove_legacy_recents(root) {
-                        eprintln!("slot: recents.txt: {e}");
+                    if let Err(e) = remove_legacy_favorites(root) {
+                        eprintln!("slot: favourites.txt: {e}");
                     }
                 }
-                Err(e) => eprintln!("slot: slot.state: {e}, recents.txt kept"),
+                Err(e) => eprintln!("slot: favorites: {e}, favourites.txt kept"),
             },
-            Err(e) => eprintln!("slot: recents.txt: {e}"),
+            Err(e) => eprintln!("slot: favourites.txt: {e}"),
         }
     }
 
@@ -641,13 +637,13 @@ impl App {
         }
     }
 
-    fn startup_kind(&self) -> ShelfKind {
+    fn startup_kind(&self) -> Rack {
         match self.state.startup_screen {
-            StartupScreen::Gba => ShelfKind::Platform(Platform::Gba),
-            StartupScreen::Gb => ShelfKind::Platform(Platform::Gb),
-            StartupScreen::Gbc => ShelfKind::Platform(Platform::Gbc),
-            StartupScreen::Favorites => ShelfKind::Favorites,
-            StartupScreen::Recents => ShelfKind::Recents,
+            StartupScreen::Gba => Rack::Of(Platform::Gba),
+            StartupScreen::Gb => Rack::Of(Platform::Gb),
+            StartupScreen::Gbc => Rack::Of(Platform::Gbc),
+            StartupScreen::Favorites => Rack::Favorites,
+            StartupScreen::Recents => Rack::Recents,
         }
     }
 
@@ -701,14 +697,14 @@ impl App {
         }
     }
 
-    fn shelf_of(&self, kind: ShelfKind) -> usize {
+    fn shelf_of(&self, kind: Rack) -> usize {
         self.shelves
             .iter()
             .position(|(k, _)| *k == kind)
             .unwrap_or(0)
     }
 
-    pub fn shelf_kind(&self) -> ShelfKind {
+    pub fn shelf_kind(&self) -> Rack {
         self.shelves[self.shelf_at].0
     }
 
@@ -717,30 +713,12 @@ impl App {
     }
 
     pub fn is_favorite(&self, cart: &Cart) -> bool {
-        self.collections.is_favorite(cart)
+        self.state.is_favorite(cart.platform, &cart.stem)
     }
 
     fn refresh_collections(&mut self) {
-        let favorites = match self.state.show_favorites {
-            true => self.collections.favorite_carts(self.carts()),
-            false => Vec::new(),
-        };
-        let at = self.shelf_of(ShelfKind::Favorites);
-        let freed = self.shelves[at].1.replace_carts(favorites);
-        self.retired_faces.extend(freed);
+        self.restock_favorites();
         self.restock_recents();
-        let favorites: std::collections::HashSet<(Platform, String)> = self
-            .collections
-            .favorites
-            .iter()
-            .map(|k| (k.platform, k.stem.clone()))
-            .collect();
-        for (_, shelf) in &mut self.shelves {
-            shelf.set_favorites(favorites.clone());
-        }
-        if self.shelf().carts.is_empty() {
-            self.leave_empty_shelf();
-        }
     }
 
     fn leave_empty_shelf(&mut self) {
@@ -751,31 +729,6 @@ impl App {
             self.shelf_named = None;
             self.name_pending = true;
         }
-    }
-
-    fn toggle_favorite(&mut self) {
-        let Some(cart) = self.selected_cart().cloned() else {
-            return;
-        };
-        let mut next = self.collections.clone();
-        let added = next.toggle_favorite(&cart);
-        let saved = self.collections_writable
-            && self.root.as_ref().is_none_or(|root| {
-                next.write_favorites(root)
-                    .inspect_err(|e| eprintln!("slot: favorites: {e}"))
-                    .is_ok()
-            });
-        if !saved {
-            return self.refuse();
-        }
-        self.collections = next;
-        self.play_held = None;
-        self.refresh_collections();
-        let toast = match added {
-            true => Toast::FavoriteAdded,
-            false => Toast::FavoriteRemoved,
-        };
-        self.hud.toast(toast, self.now());
     }
 
     fn shelf(&self) -> &Shelf {
@@ -848,7 +801,7 @@ impl App {
     }
 
     fn jump_letter(&mut self, dir: i32) {
-        if self.shelf_kind() == ShelfKind::Recents {
+        if self.shelf_kind() == Rack::Recents {
             return;
         }
         let before = self.shelf().index;
@@ -897,15 +850,15 @@ impl App {
         self.shelves
             .iter()
             .enumerate()
-            .filter(|(_, (kind, _))| {
-                kind.platform()
+            .filter(|(_, (r, _))| {
+                r.platform()
                     .is_some_and(|p| platform.is_none_or(|want| p == want))
             })
             .find_map(|(at, (_, shelf))| {
                 shelf
                     .carts
                     .iter()
-                    .position(|c| c.stem == stem)
+                    .position(|c| c.stem == stem && platform.is_none_or(|p| c.platform == p))
                     .map(|i| (at, i))
             })
     }
@@ -1026,6 +979,11 @@ impl App {
                 QuickValue::Hide
             }),
             QuickRow::Favorites => Some(if self.state.show_favorites {
+                QuickValue::Show
+            } else {
+                QuickValue::Hide
+            }),
+            QuickRow::ShowTitles => Some(if self.state.show_titles {
                 QuickValue::Show
             } else {
                 QuickValue::Hide
@@ -1237,6 +1195,13 @@ impl App {
         self.clock_faces = Some((line, hint));
     }
 
+    fn mark_stars(&mut self) {
+        let state = &self.state;
+        for (_, shelf) in &mut self.shelves {
+            shelf.mark_starred(|c| state.is_favorite(c.platform, &c.stem));
+        }
+    }
+
     pub fn set_cart_shadow(&mut self, face: TexId) {
         for (_, shelf) in &mut self.shelves {
             shelf.set_shadow(face);
@@ -1308,6 +1273,33 @@ impl App {
         }
     }
 
+    pub fn title_text(&self) -> Option<String> {
+        if !self.state.show_titles {
+            return None;
+        }
+        let shelf = self.shelf();
+        shelf.carts.get(shelf.index).map(slot_ui::label_text)
+    }
+
+    pub fn set_shelf_title_face(&mut self, face: TexId, w: u32) {
+        self.shelf_title = slot_ui::Printed::new(face, w);
+    }
+
+    pub fn clear_shelf_title(&mut self) {
+        self.shelf_title = slot_ui::Printed::default();
+    }
+
+    fn title_alpha(&self) -> f32 {
+        if !self.state.show_titles || (self.name_pending && self.slot_text().is_some()) {
+            return 0.0;
+        }
+        let named = self.shelf_named.map(|at| self.now().saturating_sub(at));
+        if named.is_some_and(|t| t < SLOT_NAME_IN_MS + SLOT_NAME_HOLD_MS) {
+            return 0.0;
+        }
+        1.0 - self.slot_name_alpha() / SLOT_NAME_ALPHA
+    }
+
     pub fn shelf_platform_name(&self) -> Option<&'static str> {
         self.next_shelf(1)?;
         Some(self.shelves[self.shelf_at].0.name())
@@ -1328,7 +1320,7 @@ impl App {
     pub fn carts(&self) -> impl Iterator<Item = &Cart> + Clone {
         self.shelves
             .iter()
-            .filter(|(kind, _)| kind.platform().is_some())
+            .filter(|(r, _)| r.platform().is_some())
             .flat_map(|(_, shelf)| shelf.carts.iter())
     }
 
@@ -1401,7 +1393,7 @@ impl App {
 
     pub fn shed_faces(&mut self) -> Vec<TexId> {
         let neighbours = self.neighbour_shelves();
-        let mut shed = std::mem::take(&mut self.retired_faces);
+        let mut shed = std::mem::take(&mut self.orphaned);
         for (at, (_, shelf)) in self.shelves.iter_mut().enumerate() {
             let keep = if at == self.shelf_at {
                 shelf.around(FACE_KEEP)
@@ -2262,6 +2254,7 @@ impl App {
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::Favorites
+            | QuickRow::ShowTitles
             | QuickRow::Wallpaper
             | QuickRow::WallpaperTint
             | QuickRow::Resume
@@ -2312,6 +2305,11 @@ impl App {
         if row == QuickRow::Favorites {
             self.state.show_favorites = !self.state.show_favorites;
             self.refresh_collections();
+            self.persist();
+            return;
+        }
+        if row == QuickRow::ShowTitles {
+            self.state.show_titles = !self.state.show_titles;
             self.persist();
             return;
         }
@@ -2374,6 +2372,7 @@ impl App {
             QuickRow::Wallpaper
             | QuickRow::Recents
             | QuickRow::Favorites
+            | QuickRow::ShowTitles
             | QuickRow::DateTime
             | QuickRow::CheatSheet
             | QuickRow::About
@@ -2727,18 +2726,18 @@ impl App {
     }
 
     pub fn layout(&self) -> Layout {
-        let sheet_in_game = match self.phase {
-            Phase::Playing { .. } => self.in_game_menu.is_some() && self.menu_sheet.is_some(),
-            Phase::Polaroids { .. } => self.switcher_sheet.is_some(),
-            _ => false,
-        };
-        match self.phase {
-            Phase::QuickMenu { .. }
-            | Phase::About
-            | Phase::CheatSheet { .. }
-            | Phase::SetClock { .. } => Layout::Native,
-            _ if sheet_in_game => Layout::Native,
-            _ => Layout::Framed,
+        if matches!(self.phase, Phase::Playing { .. })
+            && (self.in_game_menu_shown().is_some()
+                || self.in_game_menu.is_some() && self.menu_sheet.is_some())
+        {
+            return IN_GAME_MENU;
+        }
+        match &self.phase {
+            Phase::Polaroids { .. } if self.switcher_sheet.is_some() => Layout::Native,
+            Phase::Playing { .. } | Phase::Polaroids { .. } => Layout::Framed,
+            Phase::Ejecting { .. } if self.overlay_slide() > 0.0 => Layout::Framed,
+            Phase::Doze { cart: Some(_) } => Layout::Framed,
+            _ => Layout::Native,
         }
     }
 
@@ -2746,8 +2745,33 @@ impl App {
         Canvas::of(self.layout(), self.panel)
     }
 
-    pub fn frame_lift(&self) -> f32 {
-        self.lift
+    pub fn overlay_slide(&self) -> f32 {
+        match &self.phase {
+            Phase::Ejecting { t, .. } => ((-t - (EJECT_HOLD_S - POWER_ON_S)) / POWER_ON_S)
+                .clamp(0.0, 1.0)
+                .min(self.eject_overlay),
+            Phase::Playing { .. } | Phase::Polaroids { .. } | Phase::Doze { cart: Some(_) } => {
+                self.lift
+            }
+            _ => 0.0,
+        }
+    }
+
+    fn framed_panel(&self) -> bool {
+        slot_gfx::framed(self.panel)
+    }
+
+    fn draw_powering(&self, out: &mut Vec<Draw>) {
+        out.push(Draw::Rect {
+            x: 0.0,
+            y: 0.0,
+            w: OUT_W as f32,
+            h: OUT_H as f32,
+            colour: [0.0, 0.0, 0.0, 1.0],
+        });
+        if self.game_ready && self.screen > 0.0 {
+            out.push(Draw::Game);
+        }
     }
 
     pub fn screen_power(&self) -> f32 {
@@ -2885,7 +2909,30 @@ impl App {
                 .collect(),
             false => Vec::new(),
         };
-        let at = self.shelf_of(ShelfKind::Recents);
+        if self.restock(RECENTS_AT, carts) {
+            self.shelves[RECENTS_AT].1.select(0);
+        }
+        self.mark_stars();
+    }
+
+    fn restock_favorites(&mut self) {
+        let mut carts: Vec<Cart> = match self.state.show_favorites {
+            true => self
+                .carts()
+                .filter(|c| self.state.is_favorite(c.platform, &c.stem))
+                .cloned()
+                .collect(),
+            false => Vec::new(),
+        };
+        carts.sort_by(|a, b| {
+            (slot_store::sort_key(&a.stem), a.platform as u8)
+                .cmp(&(slot_store::sort_key(&b.stem), b.platform as u8))
+        });
+        self.restock(FAVORITES_AT, carts);
+        self.mark_stars();
+    }
+
+    fn restock(&mut self, at: usize, carts: Vec<Cart>) -> bool {
         let stocked = &self.shelves[at].1.carts;
         if stocked.len() == carts.len()
             && stocked
@@ -2893,14 +2940,30 @@ impl App {
                 .zip(&carts)
                 .all(|(a, b)| a.platform == b.platform && a.stem == b.stem)
         {
-            return;
+            return false;
         }
         let freed = self.shelves[at].1.replace_carts(carts);
-        self.retired_faces.extend(freed);
-        self.shelves[at].1.select(0);
+        self.orphaned.extend(freed);
         if self.shelf_at == at && self.shelves[at].1.carts.is_empty() {
             self.leave_empty_shelf();
         }
+        true
+    }
+
+    fn toggle_favorite(&mut self) {
+        let Some(cart) = self.selected_cart() else {
+            return;
+        };
+        let (platform, stem) = (cart.platform, cart.stem.clone());
+        let added = self.state.toggle_favorite(platform, &stem);
+        self.play_held = None;
+        self.restock_favorites();
+        self.persist();
+        let toast = match added {
+            true => Toast::FavoriteAdded,
+            false => Toast::FavoriteRemoved,
+        };
+        self.hud.toast(toast, self.now());
     }
 
     fn record_cart(&mut self, cart: Option<String>) {
@@ -3108,6 +3171,12 @@ impl App {
                             self.slot_name_alpha(),
                             out,
                         );
+                        slot_ui::draw_slot_title(
+                            self.canvas(),
+                            self.shelf_title,
+                            self.title_alpha(),
+                            out,
+                        );
                     }
                 }
                 draw_footer(
@@ -3137,6 +3206,15 @@ impl App {
                         .draw_row(self.canvas(), Some(cart), 0.0, self.seat(), 1.0, out);
                 }
                 self.chrome(cart, 0.0, out);
+            }
+            Phase::Ejecting { .. }
+                if self.framed_panel()
+                    && (self.layout() == Layout::Framed || self.screen > 0.0) =>
+            {
+                self.draw_powering(out)
+            }
+            Phase::Playing { .. } if self.framed_panel() && self.screen < 1.0 => {
+                self.draw_powering(out)
             }
             Phase::Ejecting { cart, .. } => {
                 self.draw_background(out);
@@ -3710,6 +3788,10 @@ impl App {
         if self.single_cart() {
             return self.refuse();
         }
+        self.eject_overlay = match self.layout() {
+            Layout::Framed => self.overlay_slide(),
+            Layout::Native => 0.0,
+        };
         self.in_game_menu = None;
         self.menu_sheet = None;
         let cart = match &mut self.phase {
@@ -4640,13 +4722,13 @@ fn up(level: u8, step: u8, max: u8) -> u8 {
     level.saturating_add(step).min(max)
 }
 
-fn mark_slot(kind: ShelfKind) -> Option<usize> {
+fn mark_slot(kind: Rack) -> Option<usize> {
     match kind {
-        ShelfKind::Platform(Platform::Gba) => Some(0),
-        ShelfKind::Platform(Platform::Gb) => Some(1),
-        ShelfKind::Platform(Platform::Gbc) => Some(2),
-        ShelfKind::Favorites => Some(3),
-        ShelfKind::Recents => None,
+        Rack::Of(Platform::Gba) => Some(0),
+        Rack::Of(Platform::Gb) => Some(1),
+        Rack::Of(Platform::Gbc) => Some(2),
+        Rack::Favorites => Some(3),
+        Rack::Recents => None,
     }
 }
 

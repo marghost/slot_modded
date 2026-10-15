@@ -227,7 +227,9 @@ pub struct SlotState {
     pub wallpaper_tint: WallpaperTint,
     pub show_recents: bool,
     pub show_favorites: bool,
+    pub show_titles: bool,
     pub recents: Vec<Recent>,
+    pub favorites: Vec<Recent>,
 }
 
 impl SlotState {
@@ -242,6 +244,25 @@ impl SlotState {
             },
         );
         self.recents.truncate(RECENTS_MAX);
+    }
+
+    pub fn is_favorite(&self, platform: Platform, stem: &str) -> bool {
+        self.favorites
+            .iter()
+            .any(|f| f.platform == platform && f.stem == stem)
+    }
+
+    pub fn toggle_favorite(&mut self, platform: Platform, stem: &str) -> bool {
+        if self.is_favorite(platform, stem) {
+            self.favorites
+                .retain(|f| !(f.platform == platform && f.stem == stem));
+            return false;
+        }
+        self.favorites.push(Recent {
+            platform,
+            stem: stem.to_string(),
+        });
+        true
     }
 }
 
@@ -376,7 +397,9 @@ impl Default for SlotState {
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
             show_favorites: true,
+            show_titles: false,
             recents: Vec::new(),
+            favorites: Vec::new(),
         }
     }
 }
@@ -385,12 +408,48 @@ fn state_path(root: &Path) -> PathBuf {
     root.join("Config").join("slot.state")
 }
 
+const RECENTS_FILE: &str = "recents.txt";
+const FAVORITES_FILE: &str = "favorites.txt";
+
+fn list_path(root: &Path, name: &str) -> PathBuf {
+    root.join("Config").join(name)
+}
+
 pub fn read_slot_state(root: &Path) -> SlotState {
-    std::fs::read(state_path(root))
+    let mut s: SlotState = std::fs::read(state_path(root))
         .ok()
         .and_then(|b| String::from_utf8(b).ok())
         .and_then(|s| parse(&s))
-        .unwrap_or_default()
+        .unwrap_or_default();
+    if list_path(root, RECENTS_FILE).exists() {
+        s.recents = read_list(root, RECENTS_FILE);
+    }
+    s.recents.truncate(RECENTS_MAX);
+    s.favorites = read_list(root, FAVORITES_FILE);
+    s
+}
+
+fn read_list(root: &Path, name: &str) -> Vec<Recent> {
+    let text = std::fs::read_to_string(list_path(root, name)).unwrap_or_default();
+    let mut list: Vec<Recent> = Vec::new();
+    for r in text.lines().filter_map(recent_value) {
+        if !list.contains(&r) {
+            list.push(r);
+        }
+    }
+    list
+}
+
+fn write_list(root: &Path, name: &str, list: &[Recent]) -> std::io::Result<()> {
+    let text: String = list
+        .iter()
+        .map(|r| format!("{}/{}\n", platform_key(r.platform), r.stem))
+        .collect();
+    let path = list_path(root, name);
+    if std::fs::read(&path).map_or(text.is_empty(), |old| old == text.as_bytes()) {
+        return Ok(());
+    }
+    atomic_write(&path, text.as_bytes())
 }
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
@@ -471,10 +530,10 @@ wallpaper={}
     text.push_str(&format!("wallpaper_tint={}\n", s.wallpaper_tint.key()));
     text.push_str(&format!("show_recents={}\n", s.show_recents as u8));
     text.push_str(&format!("show_favorites={}\n", s.show_favorites as u8));
-    for r in &s.recents {
-        text.push_str(&format!("recent={}/{}\n", platform_key(r.platform), r.stem));
-    }
-    atomic_write(&state_path(root), text.as_bytes())
+    text.push_str(&format!("show_titles={}\n", s.show_titles as u8));
+    atomic_write(&state_path(root), text.as_bytes())?;
+    write_list(root, RECENTS_FILE, &s.recents)?;
+    write_list(root, FAVORITES_FILE, &s.favorites)
 }
 
 fn parse(text: &str) -> Option<SlotState> {
@@ -514,6 +573,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut wallpaper_tint = None;
     let mut show_recents = None;
     let mut show_favorites = None;
+    let mut show_titles = None;
     let mut recents: Vec<Recent> = Vec::new();
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
@@ -557,6 +617,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "wallpaper_tint" => wallpaper_tint = WallpaperTint::parse(value),
             "show_recents" => show_recents = flag(value),
             "show_favorites" => show_favorites = flag(value),
+            "show_titles" => show_titles = flag(value),
             "recent" => recents.extend(recent_value(value)),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             "shader_gbc" => shader_gbc = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
@@ -608,7 +669,9 @@ fn parse(text: &str) -> Option<SlotState> {
         wallpaper_tint: wallpaper_tint.unwrap_or(fallback.wallpaper_tint),
         show_recents: show_recents.unwrap_or(fallback.show_recents),
         show_favorites: show_favorites.unwrap_or(fallback.show_favorites),
-        recents: recents.into_iter().take(RECENTS_MAX).collect(),
+        show_titles: show_titles.unwrap_or(fallback.show_titles),
+        recents,
+        favorites: Vec::new(),
     })
 }
 

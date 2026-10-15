@@ -1,7 +1,7 @@
 mod common;
 
 use common::{boot, tmp_root_with_carts, write_gb_cart};
-use slot::app::{App, ShelfKind};
+use slot::app::{App, Rack};
 use slot_input::{Action, Btn};
 use slot_store::{read_slot_state, write_slot_state, Platform, StartupScreen};
 
@@ -33,13 +33,13 @@ fn each_shelf_opens_where_it_was_left_after_a_restart() {
         press(&mut a, Btn::Right);
         assert_eq!(selected(&a), "Beta");
         press(&mut a, Btn::R1);
-        assert_eq!(a.shelf_kind(), ShelfKind::Platform(Platform::Gb));
+        assert_eq!(a.shelf_kind(), Rack::Of(Platform::Gb));
         press(&mut a, Btn::Right);
         assert_eq!(selected(&a), "Tetris");
         press(&mut a, Btn::L1);
     }
     let mut a = boot(d.path());
-    assert_eq!(a.shelf_kind(), ShelfKind::Platform(Platform::Gba));
+    assert_eq!(a.shelf_kind(), Rack::Of(Platform::Gba));
     assert_eq!(selected(&a), "Beta");
     press(&mut a, Btn::R1);
     assert_eq!(selected(&a), "Tetris");
@@ -54,7 +54,7 @@ fn the_favorites_shelf_remembers_its_place_too() {
         press(&mut a, Btn::Right);
         press(&mut a, Btn::Y);
         press(&mut a, Btn::L1);
-        assert_eq!(a.shelf_kind(), ShelfKind::Favorites);
+        assert_eq!(a.shelf_kind(), Rack::Favorites);
         press(&mut a, Btn::Right);
         assert_eq!(selected(&a), "Beta");
         a.apply(Action::QuickMenu);
@@ -63,7 +63,7 @@ fn the_favorites_shelf_remembers_its_place_too() {
     s.startup_screen = StartupScreen::Favorites;
     write_slot_state(d.path(), &s).unwrap();
     let a = boot(d.path());
-    assert_eq!(a.shelf_kind(), ShelfKind::Favorites);
+    assert_eq!(a.shelf_kind(), Rack::Favorites);
     assert_eq!(selected(&a), "Beta");
 }
 

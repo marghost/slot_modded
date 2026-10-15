@@ -111,6 +111,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Recents",
             "Favorites",
             "Startup Screen",
+            "Show Titles",
             "Date & Time"
         ]
     );
@@ -212,9 +213,9 @@ fn the_values_read_as_the_menu_prints_them() {
             "Light",
             "Show",
             "Hide",
-            "Low",
-            "Medium",
-            "High",
+            "25%",
+            "45%",
+            "65%",
             "GBA",
             "GB",
             "GBC",
@@ -411,4 +412,22 @@ fn screen_rows_in_game_sit_in_a_panel_at_the_bottom() {
         "the panel starts at {shader}"
     );
     assert!(slot_ui::quick_row_top(QuickRow::FastForward, &[]) < shader);
+}
+
+#[test]
+fn the_wallpaper_tint_reads_as_how_much_it_darkens() {
+    assert_eq!(
+        [QuickValue::Low, QuickValue::Medium, QuickValue::High].map(QuickValue::text),
+        ["25%", "45%", "65%"]
+    );
+}
+
+#[test]
+fn show_titles_sits_above_date_and_time_on_the_general_page() {
+    let at = |r: QuickRow| QuickRow::GENERAL.iter().position(|g| *g == r);
+    assert_eq!(
+        at(QuickRow::ShowTitles).map(|i| i + 1),
+        at(QuickRow::DateTime)
+    );
+    assert_eq!(QuickRow::ShowTitles.parent(), Some(QuickRow::General));
 }

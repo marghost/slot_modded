@@ -132,6 +132,8 @@ struct Clocks {
     battery_tex: Option<TexId>,
     platform: String,
     platform_tex: Option<TexId>,
+    title: String,
+    title_tex: Option<TexId>,
     ink: [u8; 3],
 }
 
@@ -451,6 +453,7 @@ impl Frontend {
     }
 
     pub fn upload_bezel(&mut self, compositor: &mut Compositor, panel: (u32, u32)) {
+        self.session.app_mut().set_panel(panel);
         if !slot_gfx::framed(panel) {
             return;
         }
@@ -469,6 +472,7 @@ impl Frontend {
     }
 
     pub fn render(&mut self, compositor: &mut Compositor, window: (u32, u32)) {
+        self.session.app_mut().set_panel(window);
         compositor.fit(window);
         self.session.app_mut().set_panel(window);
         self.compose(compositor);
@@ -523,7 +527,7 @@ impl Frontend {
         });
         compositor.set_shake(self.session.app().screen_shake());
         compositor.set_screen_power(self.session.app().screen_power());
-        compositor.set_overlay_slide(self.session.app().frame_lift());
+        compositor.set_overlay_slide(self.session.app().overlay_slide());
         sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
         compositor.set_game_bezel(self.session.app().shown_game_bezel());
         compositor.set_game_source_rect(self.session.app().source_rect());
@@ -692,6 +696,8 @@ impl Frontend {
         if self.rebuild.is_some() {
             return;
         }
+        self.session
+            .set_menu_dpad_display(input.menu_dpad_display());
         self.session.feed(events, now);
         let dt = self.last.elapsed().as_secs_f32();
         self.last = Instant::now();
@@ -708,6 +714,8 @@ impl Frontend {
 
     pub fn advance_at(&mut self, input: &mut dyn InputSource, now: Millis, dt: f32) {
         let events = input.poll(now);
+        self.session
+            .set_menu_dpad_display(input.menu_dpad_display());
         self.session.feed(events, now);
         self.session.update(dt);
     }
@@ -926,6 +934,18 @@ fn sync_clock(app: &mut App, compositor: &mut Compositor, clocks: &mut Clocks) {
             let w = face.w;
             let id = upload(compositor, &mut clocks.platform_tex, face);
             app.set_shelf_platform_face(id, w);
+        }
+    }
+    let title_shown = app.title_text().unwrap_or_default();
+    if title_shown != clocks.title {
+        clocks.title = title_shown.clone();
+        if title_shown.is_empty() {
+            app.clear_shelf_title();
+        } else {
+            let face = slot_ui::title_line_face(&title_shown);
+            let w = face.w;
+            let id = upload(compositor, &mut clocks.title_tex, face);
+            app.set_shelf_title_face(id, w);
         }
     }
     let battery_shown = app

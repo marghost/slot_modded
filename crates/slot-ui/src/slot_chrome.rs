@@ -315,6 +315,21 @@ pub fn draw_slot_name(canvas: Canvas, name: Printed, alpha: f32, out: &mut Vec<D
     });
 }
 
+pub fn draw_slot_title(canvas: Canvas, title: Printed, alpha: f32, out: &mut Vec<Draw>) {
+    let (Some(tex), true) = (title.face, alpha > 0.0) else {
+        return;
+    };
+    let (w, h) = (title.w as f32, crate::plate::TITLE_LINE_H as f32);
+    out.push(Draw::Tex {
+        x: canvas.centred(w),
+        y: slot_name_y() + HINT_H as f32 - h,
+        w,
+        h,
+        tex,
+        alpha,
+    });
+}
+
 pub fn draw_empty_slot(canvas: Canvas, slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {
     draw_slot_back(canvas, slot, 1.0, out);
     draw_slot_front(canvas, slot, 1.0, out);

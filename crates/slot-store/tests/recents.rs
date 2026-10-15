@@ -91,7 +91,7 @@ fn a_card_written_before_recents_reads_with_them_off() {
     let text = std::fs::read_to_string(&path).unwrap();
     let old: String = text
         .lines()
-        .filter(|l| !l.starts_with("show_recents=") && !l.starts_with("recent="))
+        .filter(|l| !l.starts_with("show_recents="))
         .map(|l| format!("{l}\n"))
         .collect();
     std::fs::write(&path, old).unwrap();
@@ -107,9 +107,9 @@ fn a_garbled_recent_line_is_skipped_and_the_rest_kept() {
     let mut s = clocked();
     s.played(Platform::Gba, "Emerald");
     write_slot_state(d.path(), &s).unwrap();
-    let path = d.path().join("Config/slot.state");
+    let path = d.path().join("Config/recents.txt");
     let mut text = std::fs::read_to_string(&path).unwrap();
-    text.push_str("recent=n64/Mario\nrecent=gba/\nrecent=nothing\n");
+    text.push_str("n64/Mario\ngba/\nnothing\n");
     std::fs::write(&path, text).unwrap();
     assert_eq!(
         read_slot_state(d.path()).recents,

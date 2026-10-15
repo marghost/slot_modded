@@ -66,7 +66,7 @@ pub use hud::{
     badge_at, ff_badge, footer_ink, FfState, Hud, HudKind, LinkBadge, Millis, ALARM_BAND_H,
     HUD_ICON_PX, HUD_INK, HUD_MS, LINK_HOST_INK, LINK_JOIN_INK, PLATE_H,
 };
-pub use icon::{badge_face, icon_box, icon_face, warm_fonts, Badge, Icon};
+pub use icon::{badge_face, icon_box, icon_face, star_face, warm_fonts, Badge, Icon};
 pub use link_art::{
     link_art, LinkArt, ADAPTER_BASE_X, ADAPTER_BASE_Y, ADAPTER_H, ADAPTER_W, ARCS, ARROW_H,
     ARROW_LEFT_X, ARROW_RIGHT_X, ARROW_W, ARROW_Y, CLICKS_H, CLICKS_W, CLICKS_X, CLICKS_Y, PLUG_H,
@@ -78,9 +78,9 @@ pub use modded::{
 };
 pub use plate::{
     arrows_hint_coloured, arrows_hint_face, arrows_hint_width, cap_width, centred_hints,
-    hint_coloured, hint_face, hint_quad, hint_row, hint_width, title_face, word_face, word_ink,
-    word_width, Hint, UndoFace, ARROW_GAP, CAP, CAP_GAP, HINT_EDGE, HINT_GAP, HINT_H, LEGEND_GAP,
-    TITLE_H, TITLE_W,
+    hint_coloured, hint_face, hint_quad, hint_row, hint_width, title_face, title_line_face,
+    word_face, word_ink, word_width, Hint, UndoFace, ARROW_GAP, CAP, CAP_GAP, HINT_EDGE, HINT_GAP,
+    HINT_H, LEGEND_GAP, TITLE_H, TITLE_LINE_H, TITLE_W,
 };
 pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
 pub use power_menu::{menu_face, PowerChoice, MENU_PAD};
@@ -91,7 +91,7 @@ pub use quick_menu::{
 };
 pub use rebuild::{rebuild_count_face, rebuild_title_face, RebuildScreen};
 pub use refusal::Refusal;
-pub use shelf::{foot_y, repeat_gap, rest_y, Shelf, REPEAT_DELAY_MS};
+pub use shelf::{foot_y, repeat_gap, rest_y, Shelf, REPEAT_DELAY_MS, STAR_INK, STAR_SCALE};
 pub use shell::{
     gb_plastics, gb_table_shells, gba_plastics, gba_shell_for,
     lookup_order_is_exact_then_family_then_default, shell_for, shell_presets, table_keys, Finish,
@@ -99,8 +99,8 @@ pub use shell::{
 };
 pub use silhouette::{gb_silhouette, silhouette, GbShell};
 pub use slot_chrome::{
-    draw_empty_slot, draw_slot_name, ease, edge, housing, opening, recess, slot_name_y, SlotChrome,
-    ALERT_PX, LIP_H, MOUTH_H, MOUTH_W,
+    draw_empty_slot, draw_slot_name, draw_slot_title, ease, edge, housing, opening, recess,
+    slot_name_y, SlotChrome, ALERT_PX, LIP_H, MOUTH_H, MOUTH_W,
 };
 pub use sticker::{
     draw_sticker, head_rows, sticker_face, sticker_lines, sticker_rect, StickerFields, COPYRIGHT,

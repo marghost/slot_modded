@@ -16,8 +16,7 @@ mod stamp;
 pub use atomic::atomic_write;
 pub use cart_shell::{Outline, ShellChoice, ShellFinish, CART_SHELL_FILE, LABELS_SHELL_FILE};
 pub use collections::{
-    import_legacy_recents, remove_legacy_recents, CartKey, Collections, FAVORITES_FILE,
-    RECENTS_FILE,
+    import_legacy_favorites, remove_legacy_favorites, CartKey, LEGACY_FAVORITES_FILE,
 };
 pub use config::{move_config, CONFIG_DIR};
 pub use core::{

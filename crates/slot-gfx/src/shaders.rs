@@ -59,6 +59,7 @@ uniform vec4 u_uv;
 uniform float u_bright;
 uniform float u_mode;
 uniform float u_paper_size;
+uniform vec2 u_origin;
 uniform vec4 u_rect;
 uniform vec2 u_fbo;
 uniform vec4 u_pic;
@@ -88,7 +89,7 @@ void main() {
         float luma = dot(c, luma_coeff);
         w = w * luma;
         c = mix(c, vec3(1.0), w);
-        vec3 bg = vec3(texture2D(u_paper, (floor(gl_FragCoord.xy) + 0.5) / u_paper_size).r) * c;
+        vec3 bg = vec3(texture2D(u_paper, (floor(gl_FragCoord.xy - u_origin) + 0.5) / u_paper_size).r) * c;
         c = mix(c, bg, dot(c, luma_coeff));
     } else if (u_mode > 2.5) {
         float bloom = mix(1.05, 0.95, dot(c, vec3(0.30, 0.59, 0.11)));

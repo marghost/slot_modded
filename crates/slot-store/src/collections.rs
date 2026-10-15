@@ -1,10 +1,9 @@
 use std::io;
 use std::path::Path;
 
-use crate::{atomic_write, sort_key, Cart, Platform, Recent, SlotState, CONFIG_DIR, RECENTS_MAX};
+use crate::{Cart, Platform, Recent, SlotState, CONFIG_DIR};
 
-pub const FAVORITES_FILE: &str = "favourites.txt";
-pub const RECENTS_FILE: &str = "recents.txt";
+pub const LEGACY_FAVORITES_FILE: &str = "favourites.txt";
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct CartKey {
@@ -37,77 +36,25 @@ impl CartKey {
             stem: stem.to_string(),
         })
     }
-
-    fn line(&self) -> String {
-        format!(
-            "{}/{}\n",
-            self.platform.dir_name().to_ascii_lowercase(),
-            self.stem
-        )
-    }
 }
 
-#[derive(Clone, Default, PartialEq, Eq, Debug)]
-pub struct Collections {
-    pub favorites: Vec<CartKey>,
-}
-
-impl Collections {
-    pub fn read(root: &Path) -> io::Result<Self> {
-        Ok(Collections {
-            favorites: read_list(root, FAVORITES_FILE)?,
-        })
-    }
-
-    pub fn is_favorite(&self, cart: &Cart) -> bool {
-        self.favorites.iter().any(|k| k.is(cart))
-    }
-
-    pub fn toggle_favorite(&mut self, cart: &Cart) -> bool {
-        match self.favorites.iter().position(|k| k.is(cart)) {
-            Some(i) => {
-                self.favorites.remove(i);
-                false
-            }
-            None => {
-                self.favorites.push(CartKey::of(cart));
-                true
-            }
-        }
-    }
-
-    pub fn write_favorites(&self, root: &Path) -> io::Result<()> {
-        write_list(root, FAVORITES_FILE, &self.favorites)
-    }
-
-    pub fn favorite_carts<'a>(&self, carts: impl Iterator<Item = &'a Cart>) -> Vec<Cart> {
-        let mut out: Vec<Cart> = carts.filter(|c| self.is_favorite(c)).cloned().collect();
-        out.sort_by_key(|c| (sort_key(&c.stem), c.platform as u8));
-        out
-    }
-}
-
-pub fn import_legacy_recents(root: &Path, state: &mut SlotState) -> io::Result<bool> {
-    if !root.join(CONFIG_DIR).join(RECENTS_FILE).exists() {
+pub fn import_legacy_favorites(root: &Path, state: &mut SlotState) -> io::Result<bool> {
+    if !root.join(CONFIG_DIR).join(LEGACY_FAVORITES_FILE).exists() {
         return Ok(false);
     }
-    if state.recents.is_empty() {
-        let old = read_list(root, RECENTS_FILE)?;
-        state.show_recents |= !old.is_empty();
-        state.recents = old
-            .into_iter()
-            .take(RECENTS_MAX)
-            .map(|k| Recent {
-                platform: k.platform,
-                stem: k.stem,
-            })
-            .collect();
+    for key in read_list(root, LEGACY_FAVORITES_FILE)? {
+        if !state.is_favorite(key.platform, &key.stem) {
+            state.favorites.push(Recent {
+                platform: key.platform,
+                stem: key.stem,
+            });
+        }
     }
     Ok(true)
 }
 
-pub fn remove_legacy_recents(root: &Path) -> io::Result<()> {
-    std::fs::remove_file(root.join(CONFIG_DIR).join(RECENTS_FILE))
+pub fn remove_legacy_favorites(root: &Path) -> io::Result<()> {
+    std::fs::remove_file(root.join(CONFIG_DIR).join(LEGACY_FAVORITES_FILE))
 }
 
 fn read_list(root: &Path, file: &str) -> io::Result<Vec<CartKey>> {
@@ -123,11 +70,4 @@ fn read_list(root: &Path, file: &str) -> io::Result<Vec<CartKey>> {
         }
     }
     Ok(keys)
-}
-
-fn write_list(root: &Path, file: &str, keys: &[CartKey]) -> io::Result<()> {
-    let dir = root.join(CONFIG_DIR);
-    std::fs::create_dir_all(&dir)?;
-    let text: String = keys.iter().map(CartKey::line).collect();
-    atomic_write(&dir.join(file), text.as_bytes())
 }

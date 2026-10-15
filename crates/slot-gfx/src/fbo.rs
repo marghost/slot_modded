@@ -155,26 +155,28 @@ impl Compositor {
             match *item {
                 Draw::Game => {
                     self.sprites.draw(&items[from..i], &self.quad);
-                    self.game.draw(&self.quad);
-                    if let Some(tex) = self.game_bezel {
-                        let (x, y, w, h) = self.game.frame();
-                        self.sprites.draw(
-                            &[Draw::Tex {
-                                x,
-                                y,
-                                w,
-                                h,
-                                tex,
-                                alpha: 1.0,
-                            }],
-                            &self.quad,
-                        );
-                    }
+                    self.in_game_rect(|c| {
+                        c.game.draw(&c.quad);
+                        if let Some(tex) = c.game_bezel {
+                            let (x, y, w, h) = c.game.frame();
+                            c.sprites.draw(
+                                &[Draw::Tex {
+                                    x,
+                                    y,
+                                    w,
+                                    h,
+                                    tex,
+                                    alpha: 1.0,
+                                }],
+                                &c.quad,
+                            );
+                        }
+                    });
                 }
                 Draw::Shot { tex } => {
                     self.sprites.draw(&items[from..i], &self.quad);
                     if let Some(tex) = self.sprites.source(tex) {
-                        self.game.draw_still(tex, &self.quad);
+                        self.in_game_rect(|c| c.game.draw_still(tex, &c.quad));
                     }
                 }
                 _ => continue,
@@ -309,6 +311,43 @@ impl Compositor {
             top_down.extend_from_slice(row);
         }
         top_down
+    }
+
+    pub fn read_window(&mut self, window: (u32, u32)) -> Vec<u8> {
+        let (w, h) = window;
+        let tex = crate::gl::texture(w, h, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::RGBA, None);
+        let mut fbo = 0;
+        unsafe {
+            gl::GenFramebuffers(1, &mut fbo);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                tex,
+                0,
+            );
+        }
+        self.output(window, fbo);
+        let stride = w as usize * 4;
+        let mut buf = vec![0u8; stride * h as usize];
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+            gl::PixelStorei(gl::PACK_ALIGNMENT, 1);
+            gl::ReadPixels(
+                0,
+                0,
+                w as i32,
+                h as i32,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                buf.as_mut_ptr() as *mut std::ffi::c_void,
+            );
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::DeleteFramebuffers(1, &fbo);
+            gl::DeleteTextures(1, &tex);
+        }
+        buf.chunks_exact(stride).rev().flatten().copied().collect()
     }
 
     pub fn begin_frame(&mut self, layout: Layout) {
@@ -500,6 +539,25 @@ fn bottom_up_texture(w: u32, h: u32, rgba: &[u8]) -> gl::types::GLuint {
 }
 
 impl Compositor {
+    fn in_game_rect(&mut self, draw: impl FnOnce(&mut Self)) {
+        if !self.native() {
+            return draw(self);
+        }
+        let (w, h) = canvas_size(self.window);
+        self.game
+            .set_fbo_scale(w as f32 / OUT_W as f32, h as f32 / OUT_H as f32);
+        let y = self.size.1 - h;
+        self.game.set_origin(0.0, y as f32);
+        unsafe { gl::Viewport(0, y as i32, w as i32, h as i32) };
+        draw(self);
+        self.game.set_origin(0.0, 0.0);
+        self.game.set_fbo_scale(
+            self.size.0 as f32 / OUT_W as f32,
+            self.size.1 as f32 / OUT_H as f32,
+        );
+        unsafe { gl::Viewport(0, 0, self.size.0 as i32, self.size.1 as i32) };
+    }
+
     fn blit_part(&self, x: i32, y: i32, w: i32, h: i32, uv: [f32; 4]) {
         unsafe {
             gl::Viewport(x, y, w, h);

@@ -26,6 +26,7 @@ pub enum QuickRow {
     Wallpaper,
     General,
     Recents,
+    ShowTitles,
     WallpaperTint,
     GbcShader,
     GbcColourCorrection,
@@ -49,7 +50,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 40] = [
+    pub const ALL: [QuickRow; 41] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -70,6 +71,7 @@ impl QuickRow {
         QuickRow::Wallpaper,
         QuickRow::General,
         QuickRow::Recents,
+        QuickRow::ShowTitles,
         QuickRow::WallpaperTint,
         QuickRow::GbcShader,
         QuickRow::GbcColourCorrection,
@@ -100,13 +102,14 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const GENERAL: [QuickRow; 7] = [
+    pub const GENERAL: [QuickRow; 8] = [
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
         QuickRow::Theme,
         QuickRow::Recents,
         QuickRow::Favorites,
         QuickRow::StartupScreen,
+        QuickRow::ShowTitles,
         QuickRow::DateTime,
     ];
 
@@ -179,7 +182,8 @@ impl QuickRow {
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::Favorites
-            | QuickRow::StartupScreen => &QuickRow::GENERAL,
+            | QuickRow::StartupScreen
+            | QuickRow::ShowTitles => &QuickRow::GENERAL,
             QuickRow::Resume
             | QuickRow::States
             | QuickRow::Settings
@@ -268,6 +272,7 @@ impl QuickRow {
             QuickRow::Wallpaper => "Wallpaper",
             QuickRow::General => "General",
             QuickRow::Recents => "Recents",
+            QuickRow::ShowTitles => "Show Titles",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
             QuickRow::States => "States",
@@ -395,9 +400,9 @@ impl QuickValue {
             QuickValue::Light => "Light",
             QuickValue::Show => "Show",
             QuickValue::Hide => "Hide",
-            QuickValue::Low => "Low",
-            QuickValue::Medium => "Medium",
-            QuickValue::High => "High",
+            QuickValue::Low => "25%",
+            QuickValue::Medium => "45%",
+            QuickValue::High => "65%",
             QuickValue::Gba => "GBA",
             QuickValue::Gb => "GB",
             QuickValue::Gbc => "GBC",

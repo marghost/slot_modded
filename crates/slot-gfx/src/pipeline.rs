@@ -20,6 +20,8 @@ pub struct GamePass {
     u_paper_size: gl::types::GLint,
     u_fbo: gl::types::GLint,
     fbo_scale: [f32; 2],
+    u_origin: gl::types::GLint,
+    origin: [f32; 2],
     u_pic: gl::types::GLint,
     pic: [f32; 4],
     paper: gl::types::GLuint,
@@ -42,7 +44,7 @@ impl GamePass {
             crate::gl::gray_format(),
             Some(&[255]),
         );
-        let (u_rect, u_bright, u_uv, u_mode, u_paper_size, u_pic, u_fbo);
+        let (u_rect, u_bright, u_uv, u_mode, u_paper_size, u_pic, u_fbo, u_origin);
         unsafe {
             gl::UseProgram(prog);
             gl::Uniform1i(crate::gl::uniform_location(prog, "u_game"), 0);
@@ -64,6 +66,7 @@ impl GamePass {
             u_paper_size = crate::gl::uniform_location(prog, "u_paper_size");
             u_fbo = crate::gl::uniform_location(prog, "u_fbo");
             u_pic = crate::gl::uniform_location(prog, "u_pic");
+            u_origin = crate::gl::uniform_location(prog, "u_origin");
         }
         Ok(GamePass {
             prog,
@@ -75,6 +78,8 @@ impl GamePass {
             u_paper_size,
             u_fbo,
             fbo_scale: [1.0, 1.0],
+            u_origin,
+            origin: [0.0, 0.0],
             u_pic,
             pic: WHOLE_TEXTURE,
             paper,
@@ -104,6 +109,10 @@ impl GamePass {
 
     pub fn set_fbo_scale(&mut self, x: f32, y: f32) {
         self.fbo_scale = [x, y];
+    }
+
+    pub fn set_origin(&mut self, x: f32, y: f32) {
+        self.origin = [x, y];
     }
 
     pub fn set_effect(&mut self, effect: ScreenEffect) {
@@ -176,6 +185,7 @@ impl GamePass {
             gl::Uniform1f(self.u_mode, self.effect.mode());
             gl::Uniform1f(self.u_paper_size, self.paper_size);
             gl::Uniform2f(self.u_fbo, self.fbo_scale[0], self.fbo_scale[1]);
+            gl::Uniform2f(self.u_origin, self.origin[0], self.origin[1]);
             gl::Uniform4f(
                 self.u_pic,
                 self.pic[0],
