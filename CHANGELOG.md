@@ -3,9 +3,9 @@
 Fork versions read `v<slot version>-mod.<feature>.<update>`: the first mod number goes up with new fork features, the
 second with upstream merges, fixes and small changes.
 
-## v1.6.0-mod.4.0 (marghost fork, not released yet)
+## [v1.6.0-mod.4.0](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.4.0) (marghost fork)
 
-Changes made in this fork since v1.6.0-mod.3.1. Written by Claude Opus (AI), see the
+Changes made in this fork since v1.6.0-mod.3.1 (2026-10-15). Written by Claude Opus (AI), see the
 [Fork AI Disclosure](README.md#fork-ai-disclosure):
 
 - Merged the original slot's latest work (main at f62a4a7, not released yet): on 4:3 screens such as the RG35XXSP
