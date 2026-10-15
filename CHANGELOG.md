@@ -8,9 +8,19 @@ second with upstream merges, fixes and small changes.
 Changes made in this fork since v1.6.0-mod.3.1. Written by Claude Opus (AI), see the
 [Fork AI Disclosure](README.md#fork-ai-disclosure):
 
+- Merged the original slot's latest work (main at f62a4a7, not released yet): on 4:3 screens such as the RG35XXSP
+  the shelves now fill the whole screen
+  ([slot issue #91](https://github.com/BrandonKowalski/slot/issues/91)), MENU → General → **Show Titles** fades the
+  shelf name into the selected game's name, Wallpaper Tint reads as a percentage, and RG34XX volume and brightness
+  chords.
+- Favorites now use the original's storage, from Samuel Alder's work
+  ([slot #89](https://github.com/BrandonKowalski/slot/issues/89)): `Config/favorites.txt`. An existing
+  `Config/favourites.txt` is moved in once and then removed. The heart, `System/favorite.png`, the Show/Hide row and
+  the banner stay as before.
+- Recents are now kept in `Config/recents.txt`. Recents saved by v1.6.0-mod.3.1 in `Config/slot.state` are moved
+  there on the first save.
 - On 4:3 screens such as the RG35XXSP, Settings, About, Date & Time and the Button Cheat Sheet now fill the whole
-  screen, with no black strip under them. The shelves keep the strip until the original slot finishes its own fix
-  ([slot issue #91](https://github.com/BrandonKowalski/slot/issues/91)).
+  screen, with no black strip under them.
 - The Button Cheat Sheet has a new look that matches Settings: your wallpaper or theme behind it, each button in a
   white key cap, page dots, and the usual Page / Back hints. It looks the same in game.
 - Settings: MENU → General → Favorites shows or hides the Favorites shelf (shown by default). Your favorites and

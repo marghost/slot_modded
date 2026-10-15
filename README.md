@@ -56,7 +56,7 @@ Everything technical lives in the wiki, one page per topic all the documentation
 | **Low-battery warning** | Automatic alerts, at 15% and 10% |
 | **Standby** | Automatic: with the lid shut, slot stops drawing screen image to save battery |
 | **GB / GBC bezels** | On by default in GB and GBC games. Settings: MENU → Screen → **GB / GBC Bezels** to change or turn off |
-| **Fullscreen menus** | Automatic on 4:3 screens like the RG35XXSP: Settings, About, Date & Time and the Button Cheat Sheet fill the whole screen, no black strip at the bottom |
+| **Fullscreen menus** | Automatic on 4:3 screens like the RG35XXSP: the shelves, Settings, About, Date & Time and the Button Cheat Sheet fill the whole screen, no black strip at the bottom |
 | **Faster scrolling** | Hold Left or Right for 2 s on a shelf of 60+ games: it moves 3 carts a step |
 
 # Try this fork on your device
