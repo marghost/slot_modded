@@ -23,7 +23,7 @@ fn the_card_s_palette_is_what_reaches_the_screen() {
     assert_eq!(hex(edge()), t.edge);
 
     let mut out = Vec::new();
-    draw_empty_slot(&mut out);
+    draw_empty_slot(None, &mut out);
     let has = |c: [f32; 4]| {
         out.iter().any(|d| match *d {
             Draw::Rect { colour, .. } => (0..3).all(|i| (colour[i] - c[i]).abs() < 0.001),

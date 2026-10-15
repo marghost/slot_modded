@@ -82,6 +82,7 @@ enum Cmd {
     EndLink,
     BeginCable(u8, Box<dyn LinkChannel>),
     SetOption(String, String),
+    Refresh,
 }
 
 struct Shared {
@@ -400,6 +401,10 @@ impl EmuHandle {
         let (tx, rx) = channel();
         request(&self.cmds, &self.shared, Cmd::Save(tx));
         rx
+    }
+
+    pub fn refresh(&self) {
+        request(&self.cmds, &self.shared, Cmd::Refresh);
     }
 
     pub fn request_load(&self, state: Vec<u8>) {
@@ -948,6 +953,20 @@ impl Worker {
                     eprintln!("slot: {e}");
                 }
             }
+            Cmd::Refresh => match core.serialize() {
+                Ok(state) => {
+                    core.set_frame_skip(true);
+                    core.run_frame(ButtonMask(0));
+                    core.set_frame_skip(false);
+                    core.run_frame(ButtonMask(0));
+                    self.publish(core.video_xrgb8888());
+                    let _ = core.take_audio();
+                    if let Err(e) = core.unserialize(&state) {
+                        eprintln!("slot: refresh: {e}");
+                    }
+                }
+                Err(e) => eprintln!("slot: refresh: {e}"),
+            },
             Cmd::Sav(reply) => {
                 let _ = reply.send(core.save_ram());
             }

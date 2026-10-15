@@ -38,6 +38,14 @@ code{
   font-size:.88em;
   color:var(--ink);
 }
+pre{
+  background:var(--opening);
+  border-radius:8px;
+  padding:.8em 1em;
+  line-height:1.5;
+  overflow-x:auto;
+}
+pre code{background:none;padding:0;border-radius:0}
 
 .wrap{max-width:900px;margin:0 auto;padding:0 24px}
 

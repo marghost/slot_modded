@@ -70,6 +70,7 @@ tasks:
       - sh card/test-slotlink.sh
       - sh card/test-led.sh
       - sh card/test-coresave.sh
+      - sh card/test-launch.sh
 
   core:
     desc: >-
@@ -355,7 +356,7 @@ tasks:
     vars:
       SD: '{{.SD | default "/mnt/sdcard"}}'
     cmds:
-      - adb shell 'cat {{.SD}}/slot.log'
+      - adb shell 'cat {{.SD}}/Logs/slot.log'
 
   clean:
     desc: Remove build output and dist

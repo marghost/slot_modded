@@ -11,6 +11,7 @@ pub const CAP_GAP: u32 = 5;
 const EDGE: u32 = 2;
 pub const HINT_EDGE: u32 = EDGE;
 const LABEL_MAX_W: f32 = 140.0;
+const WORD_MAX_W: f32 = 320.0;
 
 pub const TITLE_W: u32 = 360;
 pub const TITLE_H: u32 = 24;
@@ -63,6 +64,10 @@ pub fn hint_width(key: &str, label: &str) -> u32 {
 }
 
 pub fn hint_face(key: &str, label: &str) -> UndoFace {
+    hint_coloured(key, label, INK)
+}
+
+pub fn hint_coloured(key: &str, label: &str, ink: [u8; 3]) -> UndoFace {
     let w = hint_width(key, label);
     let mut rgba = vec![0u8; (w * HINT_H * 4) as usize];
 
@@ -81,7 +86,7 @@ pub fn hint_face(key: &str, label: &str) -> UndoFace {
     let mut band = vec![0u8; (text_w * HINT_H * 4) as usize];
     if let Some(font) = text::label_font() {
         let layout = text::fit(font, label, text_w as f32, 1, LABEL_PX, LABEL_MIN_PX);
-        text::draw_centred(&mut band, text_w, HINT_H, &layout, INK);
+        text::draw_centred(&mut band, text_w, HINT_H, &layout, ink);
     }
     blit(&mut rgba, w, &band, text_w, HINT_H, cap_w + CAP_GAP, 0);
 
@@ -89,15 +94,19 @@ pub fn hint_face(key: &str, label: &str) -> UndoFace {
 }
 
 pub fn word_width(text: &str) -> u32 {
-    band_width(text)
+    capped_width(text, WORD_MAX_W)
 }
 
 pub fn word_face(text: &str) -> UndoFace {
+    word_ink(text, INK)
+}
+
+pub fn word_ink(text: &str, ink: [u8; 3]) -> UndoFace {
     let w = word_width(text);
     let mut rgba = vec![0u8; (w * HINT_H * 4) as usize];
     if let Some(font) = text::label_font() {
         let layout = text::fit(font, text, w as f32, 1, LABEL_PX, LABEL_MIN_PX);
-        text::draw_centred(&mut rgba, w, HINT_H, &layout, INK);
+        text::draw_centred(&mut rgba, w, HINT_H, &layout, ink);
     }
     UndoFace { rgba, w, h: HINT_H }
 }
@@ -141,16 +150,20 @@ pub fn centred_hints(hints: &[(TexId, u32)], gap: f32) -> Vec<(TexId, u32, f32)>
 }
 
 fn band_width(label: &str) -> u32 {
+    capped_width(label, LABEL_MAX_W)
+}
+
+fn capped_width(label: &str, max_w: f32) -> u32 {
     let Some(font) = text::label_font() else {
-        return LABEL_MAX_W as u32;
+        return max_w as u32;
     };
-    let layout = text::fit(font, label, LABEL_MAX_W, 1, LABEL_PX, LABEL_MIN_PX);
+    let layout = text::fit(font, label, max_w, 1, LABEL_PX, LABEL_MIN_PX);
     let ink = layout
         .lines
         .iter()
         .map(|l| text::line_width(font, l, layout.px, layout.tracking))
         .fold(0.0, f32::max);
-    (ink.ceil() as u32).clamp(1, LABEL_MAX_W as u32)
+    (ink.ceil() as u32).clamp(1, max_w as u32)
 }
 
 pub fn title_face(text: &str) -> UndoFace {
@@ -184,6 +197,10 @@ pub fn arrows_hint_width(label: &str) -> u32 {
 }
 
 pub fn arrows_hint_face(label: &str) -> UndoFace {
+    arrows_hint_coloured(label, INK)
+}
+
+pub fn arrows_hint_coloured(label: &str, ink: [u8; 3]) -> UndoFace {
     let w = arrows_hint_width(label);
     let mut rgba = vec![0u8; (w * HINT_H * 4) as usize];
     for (i, glyph) in [LEFT_CARET, RIGHT_CARET].into_iter().enumerate() {
@@ -201,7 +218,7 @@ pub fn arrows_hint_face(label: &str) -> UndoFace {
     let mut band = vec![0u8; (text_w * HINT_H * 4) as usize];
     if let Some(font) = text::label_font() {
         let layout = text::fit(font, label, text_w as f32, 1, LABEL_PX, LABEL_MIN_PX);
-        text::draw_centred(&mut band, text_w, HINT_H, &layout, INK);
+        text::draw_centred(&mut band, text_w, HINT_H, &layout, ink);
     }
     blit(
         &mut rgba,

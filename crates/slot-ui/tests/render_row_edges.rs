@@ -95,7 +95,7 @@ fn held_scroll(c: &mut Compositor, n: usize, frames: usize) -> Vec<Vec<u8>> {
             s.tick(f as u64 * 1000 / 60);
             s.update(1.0 / 60.0);
             let mut list = Vec::new();
-            s.draw(0.0, &mut list);
+            s.draw(0.0, None, &mut list);
             composed(c, &list)
         })
         .collect()
@@ -182,6 +182,9 @@ fn the_slot_takes_over_the_cart_where_the_row_had_it() {
         dim: 0.0,
         screen: 0.0,
         game: false,
+        over: true,
+        behind: [None, None],
+        slot: None,
     }
     .draw(&mut after);
     let after = composed(&mut c, &after);

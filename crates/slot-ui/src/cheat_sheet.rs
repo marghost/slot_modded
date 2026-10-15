@@ -26,10 +26,10 @@ pub const CHEAT_PAGES: [CheatPage; 4] = [
     CheatPage {
         title: "IN GAME",
         rows: &[
+            ("MENU", "In-game menu"),
             ("Hold MENU", "Save state + eject"),
             ("MENU x2", "Save state switcher"),
-            ("SELECT+R1", "Save state"),
-            ("SELECT+L1", "Load latest state"),
+            ("SEL+R1 / L1", "Save / load latest"),
             ("Hold L2", "Rewind"),
             ("Hold R2", "Fast-forward"),
             ("R2 x2", "Lock fast-forward"),
@@ -60,7 +60,7 @@ pub const CHEAT_PAGES: [CheatPage; 4] = [
             ("A", "Load this state"),
             ("Y", "Delete this state"),
             ("X", "Undo save/load (30s)"),
-            ("B", "Back to game"),
+            ("B", "Back to game or menu"),
             ("START", "Button cheat sheet"),
         ],
         after_rule: &[
@@ -89,7 +89,7 @@ const FIRST_ROW: f32 = 81.0;
 const PITCH: f32 = 39.0;
 const RULE_H: u32 = 2;
 const FOOT_LEFT: &str = "D-pad / L R: page";
-const FOOT_RIGHT: &str = "Hold MENU: exit";
+const FOOT_RIGHT: &str = "B: exit";
 
 pub fn cheat_sheet_face(page: usize) -> UndoFace {
     let (w, h) = (OUT_W, OUT_H);

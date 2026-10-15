@@ -17,6 +17,139 @@ pub const FF_SPEED_DEFAULT: u8 = 6;
 
 pub const RUN_AHEAD_MAX: u8 = 1;
 
+pub const RECENTS_MAX: usize = 10;
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Recent {
+    pub platform: Platform,
+    pub stem: String,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum Appearance {
+    #[default]
+    Dark,
+    Light,
+}
+
+impl Appearance {
+    pub fn light(self) -> bool {
+        matches!(self, Appearance::Light)
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Appearance::Dark => "dark",
+            Appearance::Light => "light",
+        }
+    }
+
+    pub fn parse(name: &str) -> Option<Appearance> {
+        match name {
+            "dark" => Some(Appearance::Dark),
+            "light" => Some(Appearance::Light),
+            _ => None,
+        }
+    }
+
+    pub fn toggle(self) -> Appearance {
+        match self {
+            Appearance::Dark => Appearance::Light,
+            Appearance::Light => Appearance::Dark,
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum WallpaperTint {
+    #[default]
+    Off,
+    Low,
+    Medium,
+    High,
+}
+
+impl WallpaperTint {
+    pub const ALL: [WallpaperTint; 4] = [
+        WallpaperTint::Off,
+        WallpaperTint::Low,
+        WallpaperTint::Medium,
+        WallpaperTint::High,
+    ];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            WallpaperTint::Off => "off",
+            WallpaperTint::Low => "low",
+            WallpaperTint::Medium => "medium",
+            WallpaperTint::High => "high",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<WallpaperTint> {
+        WallpaperTint::ALL.into_iter().find(|t| t.key() == value)
+    }
+
+    pub fn step(self, right: bool) -> WallpaperTint {
+        let n = WallpaperTint::ALL.len();
+        let at = WallpaperTint::ALL
+            .iter()
+            .position(|t| *t == self)
+            .unwrap_or(0);
+        WallpaperTint::ALL[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub enum WallpaperPick {
+    None,
+    Random,
+    #[default]
+    Default,
+    Blur,
+    File(String),
+}
+
+impl WallpaperPick {
+    pub fn key(&self) -> String {
+        match self {
+            WallpaperPick::None => "none".to_string(),
+            WallpaperPick::Random => "random".to_string(),
+            WallpaperPick::Default => "default".to_string(),
+            WallpaperPick::Blur => "default_blur".to_string(),
+            WallpaperPick::File(name) => name.clone(),
+        }
+    }
+
+    pub fn label(&self) -> String {
+        match self {
+            WallpaperPick::None => "None".to_string(),
+            WallpaperPick::Random => "Random".to_string(),
+            WallpaperPick::Default => "Default".to_string(),
+            WallpaperPick::Blur => "DEFAULT BLUR".to_string(),
+            WallpaperPick::File(name) => name
+                .rsplit_once('.')
+                .map(|(stem, _)| stem)
+                .unwrap_or(name)
+                .to_string(),
+        }
+    }
+
+    pub fn parse(value: &str) -> WallpaperPick {
+        match value {
+            "none" => WallpaperPick::None,
+            "random" => WallpaperPick::Random,
+            "" | "default" => WallpaperPick::Default,
+            "default_blur" => WallpaperPick::Blur,
+            other => WallpaperPick::File(other.to_string()),
+        }
+    }
+}
+
 /// Which picture frames a Game Boy or Game Boy Color screen. `None` is the
 /// plain picture, and the default.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
@@ -74,9 +207,12 @@ pub struct SlotState {
     pub ff_speed: u8,
     pub ff_sound: bool,
     pub ff_pitch: bool,
-    pub colour_correction: bool,
+    pub colour_correction_gba: bool,
+    pub colour_correction_gb: bool,
+    pub colour_correction_gbc: bool,
     pub shader_gba: Shader,
     pub shader_gb: Shader,
+    pub shader_gbc: Shader,
     pub eject_save: bool,
     pub turbo: bool,
     pub rewind: bool,
@@ -86,6 +222,26 @@ pub struct SlotState {
     pub startup_screen: StartupScreen,
     pub bezel_gb: BezelPick,
     pub bezel_gbc: BezelPick,
+    pub appearance: Appearance,
+    pub wallpaper: WallpaperPick,
+    pub wallpaper_tint: WallpaperTint,
+    pub show_recents: bool,
+    pub recents: Vec<Recent>,
+}
+
+impl SlotState {
+    pub fn played(&mut self, platform: Platform, stem: &str) {
+        self.recents
+            .retain(|r| !(r.platform == platform && r.stem == stem));
+        self.recents.insert(
+            0,
+            Recent {
+                platform,
+                stem: stem.to_string(),
+            },
+        );
+        self.recents.truncate(RECENTS_MAX);
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -146,11 +302,11 @@ pub enum StartupScreen {
 
 impl StartupScreen {
     pub const ALL: [StartupScreen; 5] = [
+        StartupScreen::Recents,
+        StartupScreen::Favorites,
         StartupScreen::Gba,
         StartupScreen::Gb,
         StartupScreen::Gbc,
-        StartupScreen::Favorites,
-        StartupScreen::Recents,
     ];
 
     pub fn name(self) -> &'static str {
@@ -199,9 +355,12 @@ impl Default for SlotState {
             ff_speed: FF_SPEED_DEFAULT,
             ff_sound: false,
             ff_pitch: false,
-            colour_correction: false,
+            colour_correction_gba: false,
+            colour_correction_gb: false,
+            colour_correction_gbc: false,
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
+            shader_gbc: Shader::Simpletex,
             eject_save: true,
             turbo: true,
             rewind: true,
@@ -211,6 +370,11 @@ impl Default for SlotState {
             startup_screen: StartupScreen::Gba,
             bezel_gb: BezelPick::Shipped,
             bezel_gbc: BezelPick::Shipped,
+            appearance: Appearance::Dark,
+            wallpaper: WallpaperPick::Default,
+            wallpaper_tint: WallpaperTint::Off,
+            show_recents: false,
+            recents: Vec::new(),
         }
     }
 }
@@ -228,7 +392,7 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 }
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
-    let text = format!(
+    let mut text = format!(
         "cart={}
 cart_platform={}
 shelf_gba={}
@@ -247,7 +411,8 @@ rumble={}
 ff_speed={}
 ff_sound={}
 ff_pitch={}
-colour_correction={}
+colour_correction_gba={}
+colour_correction_gb={}
 shader_gba={}
 shader_gb={}
 eject_save={}
@@ -259,6 +424,8 @@ gb_palette={}
 startup_screen={}
 bezel_gb={}
 bezel_gbc={}
+appearance={}
+wallpaper={}
 ",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
@@ -278,7 +445,8 @@ bezel_gbc={}
         s.ff_speed,
         s.ff_sound as u8,
         s.ff_pitch as u8,
-        s.colour_correction as u8,
+        s.colour_correction_gba as u8,
+        s.colour_correction_gb as u8,
         s.shader_gba.name(),
         s.shader_gb.name(),
         s.eject_save as u8,
@@ -289,8 +457,20 @@ bezel_gbc={}
         s.gb_palette.core_name(),
         s.startup_screen.name(),
         s.bezel_gb.key(),
-        s.bezel_gbc.key()
+        s.bezel_gbc.key(),
+        s.appearance.name(),
+        s.wallpaper.key()
     );
+    text.push_str(&format!(
+        "colour_correction_gbc={}\n",
+        s.colour_correction_gbc as u8
+    ));
+    text.push_str(&format!("shader_gbc={}\n", s.shader_gbc.name()));
+    text.push_str(&format!("wallpaper_tint={}\n", s.wallpaper_tint.key()));
+    text.push_str(&format!("show_recents={}\n", s.show_recents as u8));
+    for r in &s.recents {
+        text.push_str(&format!("recent={}/{}\n", platform_key(r.platform), r.stem));
+    }
     atomic_write(&state_path(root), text.as_bytes())
 }
 
@@ -311,8 +491,12 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut ff_sound = None;
     let mut ff_pitch = None;
     let mut colour_correction = None;
+    let mut colour_correction_gba = None;
+    let mut colour_correction_gb = None;
+    let mut colour_correction_gbc = None;
     let mut shader_gba = None;
     let mut shader_gb = None;
+    let mut shader_gbc = None;
     let mut eject_save = None;
     let mut turbo = None;
     let mut rewind = None;
@@ -322,6 +506,11 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut startup_screen = None;
     let mut bezel_gb = None;
     let mut bezel_gbc = None;
+    let mut appearance = None;
+    let mut wallpaper = None;
+    let mut wallpaper_tint = None;
+    let mut show_recents = None;
+    let mut recents: Vec<Recent> = Vec::new();
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -346,6 +535,9 @@ fn parse(text: &str) -> Option<SlotState> {
             "ff_sound" => ff_sound = flag(value),
             "ff_pitch" => ff_pitch = flag(value),
             "colour_correction" => colour_correction = flag(value),
+            "colour_correction_gba" => colour_correction_gba = flag(value),
+            "colour_correction_gb" => colour_correction_gb = flag(value),
+            "colour_correction_gbc" => colour_correction_gbc = flag(value),
             "shader_gba" => shader_gba = Shader::parse(value).filter(|s| Shader::GBA.contains(s)),
             "eject_save" => eject_save = flag(value),
             "turbo" => turbo = flag(value),
@@ -356,7 +548,13 @@ fn parse(text: &str) -> Option<SlotState> {
             "startup_screen" => startup_screen = StartupScreen::parse(value),
             "bezel_gb" => bezel_gb = Some(BezelPick::parse(value)),
             "bezel_gbc" => bezel_gbc = Some(BezelPick::parse(value)),
+            "appearance" => appearance = Appearance::parse(value),
+            "wallpaper" => wallpaper = Some(WallpaperPick::parse(value)),
+            "wallpaper_tint" => wallpaper_tint = WallpaperTint::parse(value),
+            "show_recents" => show_recents = flag(value),
+            "recent" => recents.extend(recent_value(value)),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
+            "shader_gbc" => shader_gbc = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
         }
     }
@@ -378,9 +576,19 @@ fn parse(text: &str) -> Option<SlotState> {
         ff_speed: ff_speed.unwrap_or(fallback.ff_speed),
         ff_sound: ff_sound.unwrap_or(fallback.ff_sound),
         ff_pitch: ff_pitch.unwrap_or(fallback.ff_pitch),
-        colour_correction: colour_correction.unwrap_or(fallback.colour_correction),
+        colour_correction_gba: colour_correction_gba
+            .or(colour_correction)
+            .unwrap_or(fallback.colour_correction_gba),
+        colour_correction_gb: colour_correction_gb
+            .or(colour_correction)
+            .unwrap_or(fallback.colour_correction_gb),
+        colour_correction_gbc: colour_correction_gbc
+            .or(colour_correction_gb)
+            .or(colour_correction)
+            .unwrap_or(fallback.colour_correction_gbc),
         shader_gba: shader_gba.unwrap_or(fallback.shader_gba),
         shader_gb: shader_gb.unwrap_or(fallback.shader_gb),
+        shader_gbc: shader_gbc.or(shader_gb).unwrap_or(fallback.shader_gbc),
         eject_save: eject_save.unwrap_or(fallback.eject_save),
         turbo: turbo.unwrap_or(fallback.turbo),
         rewind: rewind.unwrap_or(fallback.rewind),
@@ -390,11 +598,25 @@ fn parse(text: &str) -> Option<SlotState> {
         startup_screen: startup_screen.unwrap_or(fallback.startup_screen),
         bezel_gb: bezel_gb.unwrap_or(fallback.bezel_gb),
         bezel_gbc: bezel_gbc.unwrap_or(fallback.bezel_gbc),
+        appearance: appearance.unwrap_or(fallback.appearance),
+        wallpaper: wallpaper.unwrap_or(fallback.wallpaper),
+        wallpaper_tint: wallpaper_tint.unwrap_or(fallback.wallpaper_tint),
+        show_recents: show_recents.unwrap_or(fallback.show_recents),
+        recents: recents.into_iter().take(RECENTS_MAX).collect(),
     })
 }
 
 fn platform_key(platform: Platform) -> String {
     platform.dir_name().to_ascii_lowercase()
+}
+
+fn recent_value(value: &str) -> Option<Recent> {
+    let (platform, stem) = value.split_once('/')?;
+    Some(Recent {
+        platform: platform_value(platform)?,
+        stem: stem.to_string(),
+    })
+    .filter(|r| !r.stem.is_empty())
 }
 
 fn platform_value(value: &str) -> Option<Platform> {

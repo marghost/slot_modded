@@ -1,8 +1,8 @@
 use slot_power::{Battery, Charge};
 use slot_store::{Cart, Platform};
 use slot_ui::{
-    draw_footer, label_colour, rest_y, Draw, GbShell, Printed, Shelf, TexId, CART_W, GB_CART_H,
-    GB_CART_W, OUT_W,
+    draw_footer, footer_ink, label_colour, rest_y, Draw, GbShell, Printed, Shelf, TexId, CART_W,
+    GB_CART_H, GB_CART_W, OUT_W,
 };
 
 fn shelf_with(n: usize) -> Shelf {
@@ -466,6 +466,32 @@ fn the_other_direction_letting_go_does_not_stop_the_repeat() {
 }
 
 #[test]
+fn the_gauge_is_white_in_dark_mode_and_black_in_light_mode() {
+    let gauge = |light| {
+        let mut out = Vec::new();
+        draw_footer(
+            Some(Battery {
+                percent: 68,
+                charge: Charge::Discharging,
+            }),
+            Printed { face: None, w: 30 },
+            None,
+            Printed { face: None, w: 40 },
+            footer_ink(light),
+            &mut out,
+        );
+        out.into_iter()
+            .find_map(|d| match d {
+                Draw::Rect { colour, .. } => Some(colour),
+                _ => None,
+            })
+            .expect("the gauge did not draw")
+    };
+    assert_eq!(gauge(false), [1.0, 1.0, 1.0, 1.0]);
+    assert_eq!(gauge(true), [0.0, 0.0, 0.0, 1.0]);
+}
+
+#[test]
 fn the_gauge_starts_at_the_case_margin() {
     let mut out = Vec::new();
     draw_footer(
@@ -476,6 +502,7 @@ fn the_gauge_starts_at_the_case_margin() {
         Printed { face: None, w: 30 },
         Some(TexId::from_raw(1)),
         Printed { face: None, w: 40 },
+        [255, 255, 255],
         &mut out,
     );
     let leftmost = out
@@ -499,6 +526,7 @@ fn the_band_prints_the_charge_at_one_margin_and_the_clock_at_the_other() {
         Printed { face: None, w: 30 },
         Some(TexId::from_raw(1)),
         Printed { face: None, w: 40 },
+        [255, 255, 255],
         &mut out,
     );
     let xs: Vec<(f32, f32)> = out
@@ -546,6 +574,7 @@ fn the_footer_does_not_move_the_gauge_when_the_charge_state_changes() {
         Printed { face: None, w: 30 },
         None,
         Printed { face: None, w: 40 },
+        [255, 255, 255],
         &mut idle,
     );
     let mut charging = Vec::new();
@@ -557,6 +586,7 @@ fn the_footer_does_not_move_the_gauge_when_the_charge_state_changes() {
         Printed { face: None, w: 30 },
         Some(TexId::from_raw(2)),
         Printed { face: None, w: 40 },
+        [255, 255, 255],
         &mut charging,
     );
     for d in &idle {
@@ -575,6 +605,7 @@ fn the_clock_stays_at_the_right_margin() {
         Printed::default(),
         None,
         Printed { face: None, w: 40 },
+        [255, 255, 255],
         &mut out,
     );
     let rightmost = out
@@ -595,6 +626,7 @@ fn a_band_with_no_gauge_still_draws_its_clock() {
         Printed::default(),
         None,
         Printed { face: None, w: 40 },
+        [255, 255, 255],
         &mut out,
     );
     assert_eq!(out.len(), 1);
@@ -604,8 +636,8 @@ fn a_band_with_no_gauge_still_draws_its_clock() {
 fn a_refusal_moves_the_carts_and_leaves_the_device_where_it_is() {
     let s = shelf_with(3);
     let (mut still, mut shaken) = (Vec::new(), Vec::new());
-    s.draw(0.0, &mut still);
-    s.draw(9.0, &mut shaken);
+    s.draw(0.0, None, &mut still);
+    s.draw(9.0, None, &mut shaken);
     assert_eq!(still.len(), shaken.len(), "the shake changed the row");
     let mut row = Vec::new();
     s.draw_row(None, 0.0, 0.0, 1.0, &mut row);
@@ -641,7 +673,7 @@ fn carts_past_the_edges_of_the_row_are_not_drawn() {
 fn the_neighbours_peek_in_from_both_edges() {
     let s = shelf_with(5);
     let mut out = Vec::new();
-    s.draw(0.0, &mut out);
+    s.draw(0.0, None, &mut out);
     let mut spans = cart_spans(&out);
     spans.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
     assert_eq!(spans.len(), 3, "expected three carts, got {}", spans.len());
@@ -741,6 +773,23 @@ fn dim_darkens_a_side_carts_face_and_not_the_black_under_it() {
     );
 }
 
+#[test]
+fn a_cart_off_centre_stays_opaque() {
+    let mut s = shelf_with(3);
+    let side = TexId::from_raw(11);
+    s.set_faces(vec![TexId::from_raw(10), side, TexId::from_raw(12)]);
+    let mut out = Vec::new();
+    s.draw_row(Some("Game 0"), 0.0, 0.0, 1.0, &mut out);
+    let alpha = out
+        .iter()
+        .find_map(|d| match *d {
+            Draw::Tex { tex, alpha, .. } if tex == side => Some(alpha),
+            _ => None,
+        })
+        .expect("the side cart is not drawn");
+    assert_eq!(alpha, 1.0, "an off-centre cart faded to {alpha}");
+}
+
 fn gb_shelf_with(n: usize) -> Shelf {
     Shelf::new(
         (0..n)
@@ -777,6 +826,7 @@ fn the_row_draws_a_game_boy_pak_at_its_own_height() {
         rest_y(GB_CART_H as f32),
         "the pak is not centred on the carousel"
     );
+    assert_eq!(y, y.round(), "the pak is off the pixel grid: {y}");
 }
 
 #[test]
@@ -786,9 +836,10 @@ fn a_game_boy_row_backs_its_carts_with_the_game_boy_shadow() {
     s.set_faces((0..3).map(|i| TexId::from_raw(20 + i)).collect());
     let gba = TexId::from_raw(98);
     s.set_shadow(gba);
+    // Off-centre carts stay opaque, so only a receding row (the core picker) shows a shadow.
     let drawn = |s: &Shelf| {
         let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        s.draw_row(None, 0.0, 0.3, 1.0, &mut out);
         out
     };
     assert!(
@@ -841,7 +892,7 @@ fn a_colour_pak_and_a_grey_one_are_backed_by_their_own_shells() {
         s.set_gb_shadow(GbShell::Notched, notched);
         s.set_gb_shadow(GbShell::Rounded, rounded);
         let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        s.draw_row(Some(&carts[selected].stem), 0.0, 0.3, 1.0, &mut out);
         let backings: Vec<TexId> = out
             .iter()
             .filter_map(|d| match *d {
@@ -868,7 +919,7 @@ fn a_cart_pushed_onto_the_row_draws_rather_than_stopping_the_device() {
     settle(&mut s);
     let backed = |s: &Shelf| {
         let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        s.draw_row(Some("Pak 0"), 0.0, 0.3, 1.0, &mut out);
         out.iter()
             .filter(|d| matches!(**d, Draw::Tex { tex, .. } if tex == gb || tex == gba))
             .count()
@@ -950,7 +1001,7 @@ fn a_fast_held_shelf_always_has_carts_on_screen() {
         s.tick(frame * 16);
         s.update(1.0 / 60.0);
         let mut out = Vec::new();
-        s.draw(0.0, &mut out);
+        s.draw(0.0, None, &mut out);
         let carts = out
             .iter()
             .filter(|d| {
@@ -962,6 +1013,37 @@ fn a_fast_held_shelf_always_has_carts_on_screen() {
             carts > 0,
             "frame {frame}: an empty shelf while scrolling fast"
         );
+    }
+}
+
+#[test]
+fn a_clear_cart_is_drawn_over_its_board_and_a_solid_one_is_not() {
+    let cart = |stem: &str, code: &str| Cart {
+        platform: Platform::Gba,
+        stem: stem.into(),
+        rom: format!("Games/GBA/{stem}.gba").into(),
+        label: None,
+        code: code.into(),
+        shell: None,
+        title: stem.to_uppercase(),
+    };
+    let board = TexId::from_raw(80);
+    for (code, clear) in [("BPEE", true), ("BPRE", false)] {
+        let mut s = Shelf::new(vec![cart("Game", code)]);
+        settle(&mut s);
+        let face = TexId::from_raw(20);
+        s.set_faces(vec![face]);
+        s.set_backing(board);
+        let mut out = Vec::new();
+        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        let at = |t: TexId| {
+            out.iter()
+                .position(|d| matches!(*d, Draw::Tex { tex, .. } if tex == t))
+        };
+        assert_eq!(at(board).is_some(), clear, "{code}: board layer");
+        if clear {
+            assert!(at(board) < at(face), "the board was drawn over the plastic");
+        }
     }
 }
 
@@ -980,4 +1062,173 @@ fn the_carts_asked_for_are_the_ones_drawn_while_the_shelf_catches_up() {
         s.on_screen().contains(&behind),
         "the cart in the middle was not asked for"
     );
+}
+
+#[test]
+fn a_clear_cart_draws_its_interior_then_the_board_then_the_plastic() {
+    let mut s = Shelf::new(vec![Cart {
+        platform: Platform::Gba,
+        stem: "Game".into(),
+        rom: "Games/GBA/Game.gba".into(),
+        label: None,
+        code: "BPEE".into(),
+        shell: None,
+        title: "GAME".into(),
+    }]);
+    settle(&mut s);
+    let (interior, board, face) = (
+        TexId::from_raw(81),
+        TexId::from_raw(80),
+        TexId::from_raw(20),
+    );
+    s.set_faces(vec![face]);
+    s.set_backing(board);
+    s.set_interior(0, interior);
+    let mut out = Vec::new();
+    s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+    let at = |t: TexId| {
+        out.iter()
+            .position(|d| matches!(*d, Draw::Tex { tex, .. } if tex == t))
+            .expect("layer drawn")
+    };
+    assert!(at(interior) < at(board) && at(board) < at(face));
+    let size = |t: TexId| {
+        out.iter().find_map(|d| match *d {
+            Draw::Tex { w, h, tex, .. } if tex == t => Some((w, h)),
+            _ => None,
+        })
+    };
+    assert_eq!(
+        size(interior),
+        size(face),
+        "the back shell is not the cart's size"
+    );
+    assert_eq!(size(board), size(face), "the board is not the cart's size");
+    assert_eq!(s.take_interior(0), Some(interior));
+}
+
+#[test]
+fn a_clear_pak_draws_its_interior_then_the_board_then_the_plastic() {
+    use slot_store::{Outline, ShellChoice, ShellFinish};
+    let mut s = Shelf::new(vec![Cart {
+        platform: Platform::Gb,
+        stem: "Pak".into(),
+        rom: "Games/GB/Pak.gb".into(),
+        label: None,
+        code: String::new(),
+        shell: Some(ShellChoice {
+            outline: Outline::Notched,
+            colour: [0xff; 3],
+            finish: ShellFinish::Clear,
+        }),
+        title: "PAK".into(),
+    }]);
+    settle(&mut s);
+    let (interior, board, face) = (
+        TexId::from_raw(81),
+        TexId::from_raw(80),
+        TexId::from_raw(20),
+    );
+    s.set_faces(vec![face]);
+    s.set_gb_backing(GbShell::Notched, board);
+    s.set_interior(0, interior);
+    let mut out = Vec::new();
+    s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+    let at = |t: TexId| {
+        out.iter()
+            .position(|d| matches!(*d, Draw::Tex { tex, .. } if tex == t))
+            .expect("layer drawn")
+    };
+    assert!(at(interior) < at(board) && at(board) < at(face));
+}
+
+#[test]
+fn only_a_clear_cart_has_anything_behind_its_plastic() {
+    let cart = |stem: &str, code: &str| Cart {
+        platform: Platform::Gba,
+        stem: stem.into(),
+        rom: format!("Games/GBA/{stem}.gba").into(),
+        label: None,
+        code: code.into(),
+        shell: None,
+        title: stem.to_uppercase(),
+    };
+    let (interior, board) = (TexId::from_raw(81), TexId::from_raw(80));
+    for (code, clear) in [("BPEE", true), ("BPRE", false)] {
+        let mut s = Shelf::new(vec![cart("Game", code)]);
+        s.set_faces(vec![TexId::from_raw(20)]);
+        s.set_backing(board);
+        s.set_interior(0, interior);
+        let want = if clear {
+            [Some(interior), Some(board)]
+        } else {
+            [None, None]
+        };
+        assert_eq!(s.behind("Game"), want, "{code}");
+    }
+    let s = Shelf::new(vec![cart("Game", "BPEE")]);
+    assert_eq!(s.behind("Nothing"), [None, None]);
+}
+
+#[test]
+fn a_pak_is_classed_when_it_is_drawn_not_when_the_shelf_is_built() {
+    let d = tempfile::tempdir().expect("tempdir");
+    let carts: Vec<Cart> = ["Front", "Clear"]
+        .iter()
+        .map(|stem| Cart {
+            platform: Platform::Gbc,
+            stem: (*stem).into(),
+            rom: d.path().join(format!("{stem}.gbc")),
+            label: None,
+            code: String::new(),
+            shell: None,
+            title: stem.to_uppercase(),
+        })
+        .collect();
+    let mut s = Shelf::new(carts.clone());
+    let mut rom = vec![0u8; 0x150];
+    rom[0x143] = 0xc0;
+    std::fs::write(&carts[1].rom, rom).expect("write rom");
+    settle(&mut s);
+    s.set_faces(vec![TexId::from_raw(20), TexId::from_raw(21)]);
+    let notched = TexId::from_raw(90);
+    let rounded = TexId::from_raw(91);
+    s.set_gb_shadow(GbShell::Notched, notched);
+    s.set_gb_shadow(GbShell::Rounded, rounded);
+    let mut out = Vec::new();
+    s.draw_row(Some("Front"), 0.0, 0.3, 1.0, &mut out);
+    assert!(
+        out.iter()
+            .any(|d| matches!(*d, Draw::Tex { tex, .. } if tex == rounded)),
+        "the colour-only pak was classed before its ROM could be read"
+    );
+}
+
+#[test]
+fn a_restocked_shelf_keeps_each_carts_face_and_interior_and_hands_back_the_rest() {
+    let cart = |stem: &str| Cart {
+        platform: Platform::Gba,
+        stem: stem.into(),
+        rom: format!("Games/GBA/{stem}.gba").into(),
+        label: None,
+        code: "BPEE".into(),
+        shell: None,
+        title: stem.to_uppercase(),
+    };
+    let mut s = Shelf::new(vec![cart("Kept"), cart("Gone")]);
+    settle(&mut s);
+    let (kept_face, gone_face) = (TexId::from_raw(20), TexId::from_raw(21));
+    let (kept_inside, gone_inside) = (TexId::from_raw(30), TexId::from_raw(31));
+    s.set_faces(vec![kept_face, gone_face]);
+    s.set_interior(0, kept_inside);
+    s.set_interior(1, gone_inside);
+    let mut freed = s.replace_carts(vec![cart("New"), cart("Kept")]);
+    freed.sort_by_key(|t| format!("{t:?}"));
+    let mut want = vec![gone_face, gone_inside];
+    want.sort_by_key(|t| format!("{t:?}"));
+    assert_eq!(freed, want);
+    assert_eq!(s.face(1), Some(kept_face));
+    assert_eq!(s.take_interior(1), Some(kept_inside));
+    assert_eq!(s.face(0), None);
+    assert_eq!(s.take_interior(0), None);
 }

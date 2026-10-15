@@ -1,6 +1,8 @@
+#[cfg(unix)]
 use std::ffi::{c_int, c_ulong, c_void};
 use std::fs;
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -17,6 +19,12 @@ const BACKLIGHT_CURVE: f64 = 1.75;
 const DEV_INPUT: &str = "/dev/input";
 
 const RUN_DIR: &str = "/run";
+
+const CARD_LOG: &str = "/data/slot-card.log";
+
+const WIFI_MODULE: &str = "8821cs";
+
+const KERNEL_LINES: usize = 40;
 
 pub fn uptime_seconds(s: &str) -> Option<String> {
     let first = s.split_whitespace().next()?;
@@ -61,6 +69,7 @@ pub fn trace_first_frame() {
 
 const EV_FF: u16 = 0x15;
 const FF_RUMBLE: u16 = 0x50;
+#[cfg(unix)]
 const EVIOCSFF: c_ulong = 0x4030_4580;
 
 const DISPDBG_MAX: u32 = 255;
@@ -136,10 +145,12 @@ impl DevicePlatform {
 
     fn breadcrumb(&self, line: &str) {
         use std::io::Write;
+        let dir = self.root.join("Logs");
+        let _ = fs::create_dir_all(&dir);
         if let Ok(mut f) = fs::OpenOptions::new()
             .create(true)
             .append(true)
-            .open(self.root.join("ags-shutdown-trace.log"))
+            .open(dir.join("ags-shutdown-trace.log"))
         {
             let _ = writeln!(f, "{} {line}", self.now());
             let _ = f.sync_all();
@@ -219,6 +230,7 @@ struct Motor {
     running: bool,
 }
 
+#[cfg(unix)]
 #[repr(C)]
 #[derive(Default)]
 struct FfTrigger {
@@ -226,6 +238,7 @@ struct FfTrigger {
     interval: u16,
 }
 
+#[cfg(unix)]
 #[repr(C)]
 #[derive(Default)]
 struct FfReplay {
@@ -233,6 +246,7 @@ struct FfReplay {
     delay: u16,
 }
 
+#[cfg(unix)]
 #[repr(C)]
 #[derive(Default)]
 struct FfRumble {
@@ -240,6 +254,7 @@ struct FfRumble {
     weak: u16,
 }
 
+#[cfg(unix)]
 #[repr(C)]
 struct FfEffect {
     kind: u16,
@@ -261,32 +276,41 @@ struct FfEvent {
     value: i32,
 }
 
+#[cfg(unix)]
 extern "C" {
     fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
 }
 
 fn upload(node: &fs::File, id: i16) -> Option<i16> {
-    let mut effect = FfEffect {
-        kind: FF_RUMBLE,
-        id,
-        direction: 0,
-        trigger: FfTrigger::default(),
-        replay: FfReplay::default(),
-        _align: 0,
-        rumble: FfRumble {
-            strong: u16::MAX,
-            weak: u16::MAX,
-        },
-        _tail: [0; 28],
-    };
-    let rc = unsafe {
-        ioctl(
-            node.as_raw_fd(),
-            EVIOCSFF,
-            &mut effect as *mut FfEffect as *mut c_void,
-        )
-    };
-    (rc >= 0).then_some(effect.id)
+    #[cfg(not(unix))]
+    {
+        let _ = (node, id);
+        None
+    }
+    #[cfg(unix)]
+    {
+        let mut effect = FfEffect {
+            kind: FF_RUMBLE,
+            id,
+            direction: 0,
+            trigger: FfTrigger::default(),
+            replay: FfReplay::default(),
+            _align: 0,
+            rumble: FfRumble {
+                strong: u16::MAX,
+                weak: u16::MAX,
+            },
+            _tail: [0; 28],
+        };
+        let rc = unsafe {
+            ioctl(
+                node.as_raw_fd(),
+                EVIOCSFF,
+                &mut effect as *mut FfEffect as *mut c_void,
+            )
+        };
+        (rc >= 0).then_some(effect.id)
+    }
 }
 
 impl Motor {
@@ -403,6 +427,17 @@ impl Platform for DevicePlatform {
         read_only(&self.root)
     }
 
+    fn card_log(&self) -> Option<PathBuf> {
+        Some(PathBuf::from(CARD_LOG))
+    }
+
+    fn card_kernel_lines(&self) -> Vec<String> {
+        Command::new("dmesg")
+            .output()
+            .map(|o| card_kernel_lines(&String::from_utf8_lossy(&o.stdout)))
+            .unwrap_or_default()
+    }
+
     fn set_backlight(&mut self, step: u8) {
         let Some(backlight) = &self.backlight else {
             return;
@@ -463,7 +498,9 @@ impl Platform for DevicePlatform {
     }
 
     fn restart(&mut self) -> ! {
-        self.breadcrumb("restart: reached slot, about to sync");
+        self.breadcrumb("restart: reached slot, unloading the WiFi driver");
+        let _ = Command::new("rmmod").arg(WIFI_MODULE).status();
+        self.breadcrumb("restart: WiFi driver unloaded, about to sync");
         let _ = Command::new("sync").status();
         self.breadcrumb("restart: sync returned, about to signal init");
         let _ = Command::new("reboot").status();
@@ -536,6 +573,23 @@ impl Platform for DevicePlatform {
 
 pub fn read_only(path: &Path) -> bool {
     fs::read_to_string("/proc/mounts").is_ok_and(|m| read_only_in(&m, path))
+}
+
+pub fn card_kernel_lines(dmesg: &str) -> Vec<String> {
+    let lines: Vec<String> = dmesg
+        .lines()
+        .filter(|l| {
+            let l = l.to_ascii_lowercase();
+            l.contains("fat-fs")
+                || l.contains("exfat")
+                || l.contains("remount")
+                || l.contains("i/o error")
+                || (l.contains("mmcblk") && (l.contains("error") || l.contains("fail")))
+        })
+        .map(str::to_owned)
+        .collect();
+    let skip = lines.len().saturating_sub(KERNEL_LINES);
+    lines.into_iter().skip(skip).collect()
 }
 
 pub fn read_only_in(mounts: &str, path: &Path) -> bool {

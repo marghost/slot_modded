@@ -2,10 +2,9 @@ use slot_gfx::{Draw, TexId};
 
 use crate::art::render_svg;
 use crate::barcode::{code39, CODE39_NARROW, CODE39_WIDE};
+use crate::bitmaps;
 use crate::plate::UndoFace;
 use crate::text;
-
-const STICKER_SVG: &str = include_str!("../assets/sticker.svg");
 
 const WORDMARK_SVG: &str = include_str!("../assets/wordmark.svg");
 
@@ -36,7 +35,9 @@ pub struct StickerFields<'a> {
     pub dirty_digit: char,
 }
 
-pub const CREDITS: [&str; 10] = [
+pub const CREDITS: [&str; 11] = [
+    "THE EXQUISITE SKEUOMORPHIC",
+    "ARTWORK MADE BY MARKUS.",
     "EMULATION POWERED BY MGBA",
     "AND GPSP. UNDERLYING OS IS",
     "BASEOS BY PVAIBHAV. TYPE IS",
@@ -45,8 +46,7 @@ pub const CREDITS: [&str; 10] = [
     "THE PANEL MASK IS DERIVED",
     "FROM GIGAHERZ'S LCD3X. THE",
     "CART SOUNDS ARE MY CHILDHOOD",
-    "GAMEBOY. I WASTED WATER",
-    "BUILDING THIS WITH CLAUDE.",
+    "GAMEBOY.",
 ];
 
 pub const ORIGIN: [&str; 2] = ["S/LOT-USA", "MADE IN ITHACA"];
@@ -84,8 +84,11 @@ struct Canvas {
 
 impl Canvas {
     fn shape(w: u32, h: u32) -> Canvas {
-        let px = render_svg(STICKER_SVG, w, h).unwrap_or_else(|| vec![0; (w * h * 4) as usize]);
-        Canvas { px, w, h }
+        Canvas {
+            px: bitmaps::sticker().to_vec(),
+            w,
+            h,
+        }
     }
 
     fn set(&mut self, x: u32, y: u32, c: [u8; 3], a: u8) {

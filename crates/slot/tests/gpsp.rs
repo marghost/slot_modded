@@ -735,3 +735,92 @@ fn the_gpsp_cartridge_clock_keeps_time_while_the_game_is_off() {
 fn the_mgba_cartridge_clock_keeps_time_while_the_game_is_off() {
     keeps_time_while_off(Core::Mgba);
 }
+
+fn saturation(xrgb: &[u8]) -> f64 {
+    let n = (xrgb.len() / 4) as f64;
+    xrgb.chunks_exact(4)
+        .map(|p| {
+            let (hi, lo) = (p[..3].iter().max(), p[..3].iter().min());
+            f64::from(hi.copied().unwrap_or(0) - lo.copied().unwrap_or(0))
+        })
+        .sum::<f64>()
+        / n
+}
+
+#[test]
+fn a_paused_refresh_shows_a_colour_change_on_the_first_toggle() {
+    use slot::audio::{AudioSink, StubSink};
+    use slot::emu::{CoreState, EmuHandle, Speed};
+    use std::time::{Duration, Instant};
+
+    let _g = common::core_lock();
+    let from = common::repo_root().join("sdcard/Games/GBA/Metroid Fusion.gba");
+    if !from.exists() || !dylib_for(Core::Gpsp).exists() {
+        eprintln!("no gpSP or no GBA cart on this machine, skipping");
+        return;
+    }
+    let d = common::tmp_root_with_carts(&[]);
+    let rom = d.path().join("Games/GBA/Metroid Fusion.gba");
+    std::fs::copy(&from, &rom).expect("copy the cart");
+
+    let mut sink = StubSink::new();
+    sink.open(32_768).expect("the stub refused to open");
+    let drain = sink.clone();
+    std::thread::spawn(move || loop {
+        drain.device_drain();
+        std::thread::sleep(Duration::from_millis(2));
+    });
+    let emu = EmuHandle::spawn(
+        slot::core::open_core_for(
+            d.path(),
+            Core::Gpsp,
+            "auto",
+            false,
+            &[dylib_for(Core::Gpsp)],
+        ),
+        rom,
+        sink.ring(),
+        None,
+        None,
+    );
+    emu.set_speed(Speed::Normal);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while emu.state() == CoreState::Loading || emu.published_count() < 300 {
+        assert!(Instant::now() < deadline, "the cart never got going");
+        std::thread::sleep(Duration::from_millis(4));
+    }
+    emu.set_speed(Speed::Paused);
+    while emu.observed_speed() != Speed::Paused {
+        assert!(Instant::now() < deadline, "the core never paused");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let shown = |emu: &EmuHandle| saturation(&emu.latest_frame().expect("no frame"));
+    let refreshed = |emu: &EmuHandle, on: bool| {
+        let before = emu.published_count();
+        emu.set_option(
+            "gpsp_color_correction",
+            if on { "enabled" } else { "disabled" },
+        );
+        emu.refresh();
+        while emu.published_count() == before {
+            assert!(Instant::now() < deadline, "the refresh never published");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        shown(emu)
+    };
+    let raw = shown(&emu);
+    assert!(
+        raw > 10.0,
+        "the paused frame has no colour to correct: {raw:.1}"
+    );
+    let on = refreshed(&emu, true);
+    assert!(
+        on < raw * 0.9,
+        "the first toggle on drew the old colours: saturation {raw:.1} before, {on:.1} after"
+    );
+    let off = refreshed(&emu, false);
+    assert!(
+        (off - raw).abs() < raw * 0.02,
+        "toggling back off did not restore the raw colours: {raw:.1} then {off:.1}"
+    );
+}

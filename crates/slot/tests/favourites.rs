@@ -21,6 +21,14 @@ fn file(d: &tempfile::TempDir, name: &str) -> String {
     std::fs::read_to_string(d.path().join("Config").join(name)).unwrap_or_default()
 }
 
+fn recents(d: &tempfile::TempDir) -> Vec<String> {
+    read_slot_state(d.path())
+        .recents
+        .into_iter()
+        .map(|r| r.stem)
+        .collect()
+}
+
 fn start_selected(a: &mut App) {
     a.apply(Action::Insert);
     a.on_core_ready();
@@ -48,7 +56,7 @@ fn y_stars_and_unstars_the_selected_cart() {
 }
 
 #[test]
-fn the_new_shelves_come_after_the_platforms_and_empty_ones_are_skipped() {
+fn the_new_shelves_come_before_the_platforms_and_empty_ones_are_skipped() {
     let d = tmp_root_with_carts(&["Alpha", "Beta"]);
     let mut a = boot(d.path());
     assert_eq!(a.shelf_kind(), ShelfKind::Platform(Platform::Gba));
@@ -79,7 +87,7 @@ fn a_game_started_from_favorites_plays_and_lands_in_recents() {
     assert_eq!(a.shelf_kind(), ShelfKind::Favorites);
     start_selected(&mut a);
     assert_eq!(a.seated_cart().map(|c| c.stem.as_str()), Some("Beta"));
-    assert_eq!(file(&d, "recents.txt"), "gba/Beta\n");
+    assert_eq!(recents(&d), ["Beta"]);
 }
 
 #[test]
@@ -94,7 +102,7 @@ fn recents_put_the_last_game_first() {
     assert!(matches!(a.phase(), Phase::Shelf), "{:?}", a.phase());
     press(&mut a, Btn::Right);
     start_selected(&mut a);
-    assert_eq!(file(&d, "recents.txt"), "gba/Beta\ngba/Alpha\n");
+    assert_eq!(recents(&d), ["Beta", "Alpha"]);
 }
 
 #[test]
@@ -147,6 +155,9 @@ fn the_same_name_on_two_platforms_is_a_favorite_once() {
 #[test]
 fn favorites_and_recents_come_back_after_a_restart() {
     let d = tmp_root_with_carts(&["Alpha", "Beta"]);
+    let mut s = read_slot_state(d.path());
+    s.show_recents = true;
+    write_slot_state(d.path(), &s).unwrap();
     {
         let mut a = boot(d.path());
         press(&mut a, Btn::Y);
@@ -160,9 +171,9 @@ fn favorites_and_recents_come_back_after_a_restart() {
     for _ in 0..120 {
         a.update(1.0 / 60.0);
     }
-    press(&mut a, Btn::R1);
+    press(&mut a, Btn::L1);
     assert_eq!(a.shelf_kind(), ShelfKind::Favorites);
-    press(&mut a, Btn::R1);
+    press(&mut a, Btn::L1);
     assert_eq!(a.shelf_kind(), ShelfKind::Recents);
     assert_eq!(selected(&a).1, "Alpha");
 }
@@ -206,7 +217,7 @@ fn an_empty_startup_screen_opens_the_next_shelf_with_games() {
     std::fs::create_dir_all(d.path().join("Config")).unwrap();
     std::fs::write(d.path().join("Config/recents.txt"), "gba/Alpha\n").unwrap();
     let a = boot_with_startup(&d, StartupScreen::Favorites);
-    assert_eq!(a.shelf_kind(), ShelfKind::Recents);
+    assert_eq!(a.shelf_kind(), ShelfKind::Platform(Platform::Gba));
     let a = boot_with_startup(&d, StartupScreen::Gbc);
     assert_eq!(a.shelf_kind(), ShelfKind::Recents);
 }
@@ -232,8 +243,14 @@ fn the_startup_screen_row_cycles_and_saves() {
     let d = tmp_root_with_carts(&["Alpha", "Beta"]);
     let mut a = boot(d.path());
     a.apply(Action::QuickMenu);
-    press(&mut a, Btn::Down);
-    press(&mut a, Btn::Down);
+    assert_eq!(a.quick_menu(), Some(QuickRow::General));
+    press(&mut a, Btn::A);
+    for _ in 0..QuickRow::GENERAL.len() {
+        if a.quick_menu() == Some(QuickRow::StartupScreen) {
+            break;
+        }
+        press(&mut a, Btn::Down);
+    }
     assert_eq!(a.quick_menu(), Some(QuickRow::StartupScreen));
     assert_eq!(
         a.quick_value(QuickRow::StartupScreen),
@@ -241,8 +258,9 @@ fn the_startup_screen_row_cycles_and_saves() {
     );
     press(&mut a, Btn::Right);
     assert_eq!(read_slot_state(d.path()).startup_screen, StartupScreen::Gb);
-    press(&mut a, Btn::Left);
-    press(&mut a, Btn::Left);
+    for _ in 0..3 {
+        press(&mut a, Btn::Left);
+    }
     assert_eq!(
         a.quick_value(QuickRow::StartupScreen),
         Some(QuickValue::Recents)
@@ -327,7 +345,7 @@ fn a_game_started_from_recents_keeps_its_header_for_link_play() {
     press(&mut a, Btn::Right);
     assert_eq!(selected(&a).1, "Emerald");
     start_selected(&mut a);
-    assert_eq!(file(&d, "recents.txt"), "gba/Emerald\ngba/Alpha\n");
+    assert_eq!(recents(&d), ["Emerald", "Alpha"]);
     assert_eq!(a.link_mode("Emerald").0, LinkKind::Wireless);
 }
 
@@ -376,7 +394,8 @@ fn an_unreadable_favorites_file_is_never_overwritten() {
 fn a_card_without_games_keeps_the_first_shelf_whatever_the_startup_screen() {
     let d = tmp_root_with_carts(&[]);
     let a = boot_with_startup(&d, StartupScreen::Favorites);
-    assert_eq!(a.shelf_kind(), ShelfKind::Platform(Platform::Gba));
+    assert_eq!(a.shelf_kind(), ShelfKind::Recents);
+    assert!(a.selected_cart().is_none());
 }
 
 #[test]
@@ -406,4 +425,54 @@ fn y_on_the_favorites_shelf_removes_the_game_and_keeps_the_others() {
         press(&mut a, Btn::Right);
     }
     assert!(!a.is_favorite(a.selected_cart().unwrap()));
+}
+
+#[test]
+fn the_shelves_run_recents_favorites_then_the_platforms() {
+    let d = tmp_root_with_carts(&["Alpha", "Beta"]);
+    write_gb_cart(&d, "Tetris", "TETRIS");
+    std::fs::create_dir_all(d.path().join("Config")).unwrap();
+    std::fs::write(d.path().join("Config/favourites.txt"), "gba/Beta\n").unwrap();
+    std::fs::write(d.path().join("Config/recents.txt"), "gba/Alpha\n").unwrap();
+    let mut a = boot_with_startup(&d, StartupScreen::Recents);
+    let mut seen = vec![a.shelf_kind()];
+    for _ in 0..3 {
+        press(&mut a, Btn::R1);
+        seen.push(a.shelf_kind());
+    }
+    assert_eq!(
+        seen,
+        [
+            ShelfKind::Recents,
+            ShelfKind::Favorites,
+            ShelfKind::Platform(Platform::Gba),
+            ShelfKind::Platform(Platform::Gb),
+        ]
+    );
+}
+
+#[test]
+fn an_old_recents_file_becomes_the_recents_shelf_and_is_removed() {
+    let d = tmp_root_with_carts(&["Alpha", "Beta"]);
+    std::fs::create_dir_all(d.path().join("Config")).unwrap();
+    std::fs::write(d.path().join("Config/recents.txt"), "gba/Beta\ngba/Alpha\n").unwrap();
+    let mut a = boot(d.path());
+    assert!(!d.path().join("Config/recents.txt").exists());
+    let s = read_slot_state(d.path());
+    assert!(s.show_recents);
+    assert_eq!(recents(&d), ["Beta", "Alpha"]);
+    press(&mut a, Btn::L1);
+    assert_eq!(a.shelf_kind(), ShelfKind::Recents);
+    assert_eq!(selected(&a).1, "Beta");
+}
+
+#[test]
+fn a_hidden_recents_startup_screen_opens_the_next_shelf_with_games() {
+    let d = tmp_root_with_carts(&["Alpha", "Beta"]);
+    let mut s = read_slot_state(d.path());
+    s.played(Platform::Gba, "Alpha");
+    s.show_recents = false;
+    write_slot_state(d.path(), &s).unwrap();
+    let a = boot_with_startup(&d, StartupScreen::Recents);
+    assert_eq!(a.shelf_kind(), ShelfKind::Platform(Platform::Gba));
 }

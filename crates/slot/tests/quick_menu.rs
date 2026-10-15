@@ -6,10 +6,13 @@ use common::{
 };
 use slot::app::{App, Phase};
 use slot_input::{Action, Btn};
-use slot_store::{read_slot_state, write_slot_state, BezelPick, Platform, Shader, SlotState};
+use slot_store::{
+    read_slot_state, write_slot_state, Appearance, BezelPick, Platform, Shader, SlotState,
+    WallpaperPick,
+};
 use slot_ui::{
-    edge, Draw, Icon, QuickMenuFaces, QuickRow, QuickValue, TexId, MENU_PAD, OUT_W, QUICK_EDGE,
-    QUICK_PITCH, QUICK_TOP, QUICK_VISIBLE,
+    Draw, Icon, QuickMenuFaces, QuickRow, QuickValue, TexId, MENU_PAD, OUT_W, QUICK_EDGE,
+    QUICK_LABEL_X,
 };
 use tempfile::TempDir;
 
@@ -44,12 +47,12 @@ fn press(a: &mut App, btn: Btn) {
 fn open_at(a: &mut App, row: QuickRow) {
     a.apply(Action::QuickMenu);
     let parent = row.parent();
-    for _ in 0..parent.unwrap_or(row).position() {
+    for _ in 0..parent.unwrap_or(row).position(&[]) {
         press(a, Btn::Down);
     }
     if parent.is_some() {
         press(a, Btn::A);
-        for _ in 0..row.position() {
+        for _ in 0..row.position(a.hidden_rows()) {
             press(a, Btn::Down);
         }
     }
@@ -222,6 +225,114 @@ fn a_bezel_turned_off_stays_off() {
 }
 
 #[test]
+fn wallpaper_cycles_none_random_default_blur_then_the_folder_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    let dir = d.path().join("Wallpapers");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("b.png"), b"png").unwrap();
+    std::fs::write(dir.join("Crt.png"), b"png").unwrap();
+    std::fs::write(dir.join("a.png"), b"png").unwrap();
+    open_at(&mut a, QuickRow::Wallpaper);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Wallpaper));
+    assert_eq!(
+        a.resolved_wallpaper(),
+        WallpaperPick::Default,
+        "a new card did not start on Default"
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::Blur);
+    assert_eq!(a.resolved_wallpaper().label(), "DEFAULT BLUR");
+    for name in ["a.png", "b.png", "Crt.png"] {
+        press(&mut a, Btn::Right);
+        assert_eq!(a.resolved_wallpaper(), WallpaperPick::File(name.into()));
+    }
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::None);
+    assert_eq!(read_slot_state(d.path()).wallpaper, WallpaperPick::None);
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::Random);
+    assert_eq!(a.resolved_wallpaper().label(), "Random");
+    assert_eq!(read_slot_state(d.path()).wallpaper, WallpaperPick::Random);
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::Default);
+    press(&mut a, Btn::Left);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::Random);
+    press(&mut a, Btn::Left);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::None);
+    press(&mut a, Btn::A);
+    assert_eq!(
+        a.quick_menu(),
+        Some(QuickRow::Wallpaper),
+        "wallpaper opened a page"
+    );
+}
+
+fn random_card(names: &[&str]) -> TempDir {
+    let (d, _, _) = on_carousel_with(SlotState {
+        wallpaper: WallpaperPick::Random,
+        ..SlotState::default()
+    });
+    let dir = d.path().join("Wallpapers");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in names {
+        std::fs::write(dir.join(name), b"png").unwrap();
+    }
+    d
+}
+
+#[test]
+fn random_shows_one_of_the_folder_and_keeps_it_for_the_boot() {
+    let d = random_card(&["a.png", "b.png", "c.png"]);
+    let (mut a, _) = app_booting_at(d.path(), CLOCK_IS_SET);
+    let first = a.shown_wallpaper().expect("random showed nothing");
+    assert!(
+        ["a.png", "b.png", "c.png"].contains(&first.as_str()),
+        "{first}"
+    );
+    for _ in 0..5 {
+        assert_eq!(a.shown_wallpaper().as_deref(), Some(first.as_str()));
+    }
+}
+
+#[test]
+fn random_deals_every_wallpaper_once_before_a_repeat_across_boots() {
+    let names = ["a.png", "b.png", "c.png"];
+    let d = random_card(&names);
+    let mut seen: Vec<String> = (0..names.len())
+        .map(|_| {
+            let (mut a, _) = app_booting_at(d.path(), CLOCK_IS_SET);
+            a.shown_wallpaper().expect("random showed nothing")
+        })
+        .collect();
+    seen.sort();
+    assert_eq!(seen, names);
+}
+
+#[test]
+fn random_with_an_empty_folder_shows_the_default() {
+    let d = random_card(&[]);
+    let (mut a, _) = app_booting_at(d.path(), CLOCK_IS_SET);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::Random);
+    assert_eq!(a.shown_wallpaper(), None);
+}
+
+#[test]
+fn theme_switches_between_dark_and_light_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::Theme);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Theme));
+    assert_eq!(a.quick_value(QuickRow::Theme), Some(QuickValue::Dark));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.quick_value(QuickRow::Theme), Some(QuickValue::Light));
+    assert_eq!(read_slot_state(d.path()).appearance, Appearance::Light);
+    press(&mut a, Btn::A);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Theme), "theme opened a page");
+    press(&mut a, Btn::Left);
+    assert_eq!(a.quick_value(QuickRow::Theme), Some(QuickValue::Dark));
+    assert_eq!(read_slot_state(d.path()).appearance, Appearance::Dark);
+}
+
+#[test]
 fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
     let (_d, mut a, _) = on_carousel();
     a.apply(Action::QuickMenu);
@@ -232,13 +343,12 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         "up from the top did not wrap to the bottom"
     );
     for want in [
+        QuickRow::General,
         QuickRow::Screen,
         QuickRow::Game,
-        QuickRow::StartupScreen,
-        QuickRow::DateTime,
         QuickRow::CheatSheet,
         QuickRow::About,
-        QuickRow::Screen,
+        QuickRow::General,
     ] {
         press(&mut a, Btn::Down);
         assert_eq!(a.quick_menu(), Some(want));
@@ -304,7 +414,7 @@ fn rumble_and_fast_forward_sound_flip_on_either_arrow_and_save() {
     );
     press(&mut a, Btn::Right);
     assert_eq!(card(&d), (false, true));
-    for _ in QuickRow::FastForwardSound.position()..QuickRow::Rumble.position() {
+    for _ in QuickRow::FastForwardSound.position(&[])..QuickRow::Rumble.position(&[]) {
         press(&mut a, Btn::Down);
     }
     press(&mut a, Btn::Right);
@@ -333,34 +443,42 @@ fn keep_ff_pitch_sits_under_fast_forward_sound_and_saves() {
 }
 
 #[test]
-fn colour_correction_flips_on_either_arrow_and_saves() {
-    let (d, mut a, _) = on_carousel();
-    open_at(&mut a, QuickRow::ColourCorrection);
-    assert!(
-        !a.colour_correction(),
-        "the row did not open on the default, which is off"
-    );
-    assert_eq!(
-        a.quick_value(QuickRow::ColourCorrection),
-        Some(QuickValue::Off)
-    );
-    for (btn, want) in [
-        (Btn::Right, true),
-        (Btn::Left, false),
-        (Btn::Left, true),
-        (Btn::Right, false),
+fn each_systems_colour_correction_flips_on_either_arrow_and_saves_alone() {
+    let saved = |d: &TempDir| {
+        let s = read_slot_state(d.path());
+        (
+            s.colour_correction_gba,
+            s.colour_correction_gb,
+            s.colour_correction_gbc,
+        )
+    };
+    for row in [
+        QuickRow::GbaColourCorrection,
+        QuickRow::GbColourCorrection,
+        QuickRow::GbcColourCorrection,
     ] {
-        press(&mut a, btn);
-        assert_eq!(a.colour_correction(), want, "{btn:?}");
+        let (d, mut a, _) = on_carousel();
+        open_at(&mut a, row);
         assert_eq!(
-            read_slot_state(d.path()).colour_correction,
-            want,
-            "{btn:?} never reached the card"
+            a.quick_value(row),
+            Some(QuickValue::Off),
+            "{row:?} did not open on the default, which is off"
         );
-        assert_eq!(
-            a.quick_value(QuickRow::ColourCorrection),
-            Some(QuickValue::flag(want))
-        );
+        for (btn, want) in [
+            (Btn::Right, true),
+            (Btn::Left, false),
+            (Btn::Left, true),
+            (Btn::Right, false),
+        ] {
+            press(&mut a, btn);
+            let both = match row {
+                QuickRow::GbaColourCorrection => (want, false, false),
+                QuickRow::GbColourCorrection => (false, want, false),
+                _ => (false, false, want),
+            };
+            assert_eq!(saved(&d), both, "{row:?} {btn:?}");
+            assert_eq!(a.quick_value(row), Some(QuickValue::flag(want)));
+        }
     }
 }
 
@@ -396,8 +514,11 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
     press(&mut a, Btn::A);
     assert_eq!(a.quick_menu(), Some(QuickRow::GbaShader));
     for want in [
+        QuickRow::GbaColourCorrection,
+        QuickRow::GbcShader,
+        QuickRow::GbcColourCorrection,
         QuickRow::GbShader,
-        QuickRow::ColourCorrection,
+        QuickRow::GbColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::Bezels,
         QuickRow::GbaShader,
@@ -441,19 +562,37 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
         );
     }
     assert_eq!(read_slot_state(d.path()).shader_gb, Shader::Simpletex);
-    press(&mut a, Btn::Down);
+    for _ in QuickRow::GbaShader.position(&[])..QuickRow::GbShader.position(&[]) {
+        press(&mut a, Btn::Down);
+    }
+    assert_eq!(a.quick_menu(), Some(QuickRow::GbShader));
     press(&mut a, Btn::Left);
     assert_eq!(read_slot_state(d.path()).shader_gb, Shader::Grid);
     assert_eq!(read_slot_state(d.path()).shader_gba, Shader::Off);
+    assert_eq!(
+        a.quick_value(QuickRow::GbcShader),
+        Some(QuickValue::Simpletex)
+    );
+    for _ in QuickRow::GbcShader.position(&[])..QuickRow::GbShader.position(&[]) {
+        press(&mut a, Btn::Up);
+    }
+    assert_eq!(a.quick_menu(), Some(QuickRow::GbcShader));
+    press(&mut a, Btn::Right);
+    let s = read_slot_state(d.path());
+    assert_eq!(
+        (s.shader_gba, s.shader_gb, s.shader_gbc),
+        (Shader::Off, Shader::Grid, Shader::Off)
+    );
 }
 
 #[test]
 fn colour_correction_leaves_the_settings_around_it_alone() {
     let (d, mut a, _) = on_carousel();
-    open_at(&mut a, QuickRow::ColourCorrection);
+    open_at(&mut a, QuickRow::GbaColourCorrection);
     press(&mut a, Btn::Right);
     let s = read_slot_state(d.path());
-    assert!(s.colour_correction, "the row never took");
+    assert!(s.colour_correction_gba, "the row never took");
+    assert!(!s.colour_correction_gb, "the Game Boy picture changed too");
     assert_eq!(
         (s.ff_speed, s.ff_sound, s.rumble),
         (
@@ -471,12 +610,19 @@ fn the_arrows_change_nothing_on_a_row_that_opens() {
     a.apply(Action::QuickMenu);
     a.apply(Action::QuickMenu);
     let before = std::fs::read(d.path().join("Config/slot.state")).expect("read slot.state");
-    for row in [QuickRow::DateTime, QuickRow::CheatSheet, QuickRow::About] {
+    for row in [
+        QuickRow::General,
+        QuickRow::DateTime,
+        QuickRow::CheatSheet,
+        QuickRow::About,
+    ] {
         open_at(&mut a, row);
         press(&mut a, Btn::Left);
         press(&mut a, Btn::Right);
         assert_eq!(a.quick_menu(), Some(row), "an arrow left {row:?}");
-        a.apply(Action::QuickMenu);
+        while a.quick_menu().is_some() {
+            press(&mut a, Btn::B);
+        }
     }
     assert_eq!(
         std::fs::read(d.path().join("Config/slot.state")).expect("read slot.state"),
@@ -657,21 +803,29 @@ fn fake_faces(a: &mut App) {
     let id = TexId::from_raw;
     a.set_quick_menu_faces(QuickMenuFaces {
         labels: (0..QuickRow::ALL.len())
-            .map(|i| (id(100 + i), 200, 40))
+            .map(|i| [(id(100 + i), 200, 40), (id(150 + i), 200, 40)])
             .collect(),
+        pointer: (id(700), 32, 48),
         values: (0..QuickValue::ALL.len())
-            .map(|i| [(id(200 + i), 60, 40), (id(210 + i), 60, 40)])
+            .map(|i| [(id(200 + i), 60, 40), (id(230 + i), 60, 40)])
             .collect(),
         carets: [(id(300), 10, 40), (id(301), 10, 40)],
-        marks: [(id(310), 20, 12), (id(311), 20, 12)],
-        legend: [(id(400), 70), (id(401), 110), (id(402), 80)],
+        legend: [(id(400), 70), (id(401), 110), (id(402), 80), (id(403), 90)],
     });
     a.set_quick_clock_faces((id(500), 150, 40), (id(501), 150, 40));
 }
 
+fn label(row: QuickRow, lit: bool) -> usize {
+    if lit {
+        150 + row.index()
+    } else {
+        100 + row.index()
+    }
+}
+
 fn value(v: QuickValue, lit: bool) -> usize {
     if lit {
-        210 + v.index()
+        230 + v.index()
     } else {
         200 + v.index()
     }
@@ -734,10 +888,14 @@ fn the_arrows_stand_only_around_the_selected_rows_value() {
         "rumble's ON is not grey"
     );
     press(&mut a, Btn::B);
+    for _ in QuickRow::General.position(&[])..QuickRow::Game.position(&[]) {
+        press(&mut a, Btn::Up);
+    }
+    press(&mut a, Btn::A);
     let out = frame(&a);
     assert!(drawn(&out, 500), "the date and time is not grey");
 
-    for _ in QuickRow::Game.position()..QuickRow::DateTime.position() {
+    for _ in 0..QuickRow::DateTime.position(a.hidden_rows()) {
         press(&mut a, Btn::Down);
     }
     let out = frame(&a);
@@ -749,38 +907,47 @@ fn the_arrows_stand_only_around_the_selected_rows_value() {
 }
 
 #[test]
-fn the_bar_runs_edge_to_edge_behind_the_selected_row() {
+fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     a.apply(Action::QuickMenu);
     for row in QuickRow::MAIN {
-        let bars: Vec<_> = frame(&a)
-            .into_iter()
-            .filter_map(|d| match d {
-                Draw::Rect { x, y, w, h, colour } if colour == edge() => Some([x, y, w, h]),
-                _ => None,
-            })
+        let out = frame(&a);
+        let pointers: Vec<_> = out
+            .iter()
+            .filter(|d| matches!(d, Draw::Tex { tex, .. } if *tex == TexId::from_raw(700)))
             .collect();
-        let top = QUICK_TOP + QUICK_PITCH * row.position() as f32;
-        assert_eq!(
-            bars,
-            vec![[0.0, top + 4.0, OUT_W as f32, QUICK_PITCH - 8.0]],
-            "{row:?}"
+        assert_eq!(pointers.len(), 1, "{row:?}: {} pointers", pointers.len());
+        let [px, py, pw, ph] = placed(&out, 700).expect("the pointer");
+        let [lx, ly, _, lh] = placed(&out, label(row, true)).expect("the lit label");
+        assert!(
+            px + pw <= lx + MENU_PAD as f32,
+            "{row:?}: the pointer runs into its label"
         );
+        assert_eq!(
+            py + ph / 2.0,
+            ly + lh / 2.0,
+            "{row:?}: the pointer is off the row"
+        );
+        for other in QuickRow::MAIN.into_iter().filter(|r| *r != row) {
+            assert!(drawn(&out, label(other, false)), "{other:?} is not grey");
+            assert!(!drawn(&out, label(other, true)), "{other:?} is lit");
+        }
         press(&mut a, Btn::Down);
     }
 }
 
 #[test]
-fn labels_start_and_values_end_thirty_two_pixels_in() {
+fn labels_leave_room_for_the_pointer_and_values_end_thirty_two_pixels_in() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     open_at(&mut a, QuickRow::FastForward);
     let out = frame(&a);
     let right = OUT_W as f32 - QUICK_EDGE;
-    for row in QuickRow::GAME.into_iter().take(QUICK_VISIBLE) {
-        let [x, ..] = placed(&out, 100 + row.index()).expect("a label was not drawn");
-        assert_eq!(x + MENU_PAD as f32, QUICK_EDGE, "{row:?}'s label");
+    for row in QuickRow::GAME {
+        let lit = row == QuickRow::FastForward;
+        let [x, ..] = placed(&out, label(row, lit)).expect("a label was not drawn");
+        assert_eq!(x + MENU_PAD as f32, QUICK_LABEL_X, "{row:?}'s label");
     }
     let [x, _, w, _] = placed(&out, value(QuickValue::On, false)).expect("an unselected On");
     assert_eq!(x + w - MENU_PAD as f32, right, "an unselected value");
@@ -834,103 +1001,212 @@ fn gb_palettes_flips_on_either_arrow_and_saves() {
 }
 
 #[test]
-fn the_gameplay_page_shows_six_rows_and_marks_the_hidden_ones() {
-    let (_d, mut a, _) = on_carousel();
-    fake_faces(&mut a);
-    open_at(&mut a, QuickRow::FastForward);
-    let page = QuickRow::GAME;
-    assert!(
-        page.len() > QUICK_VISIBLE,
-        "the gameplay page no longer scrolls"
-    );
-    let label = |row: QuickRow| 100 + row.index();
-    let out = frame(&a);
-    for (at, row) in page.iter().enumerate() {
-        assert_eq!(
-            drawn(&out, label(*row)),
-            at < QUICK_VISIBLE,
-            "{row:?} at the top"
-        );
-    }
-    assert!(!drawn(&out, 310), "an up mark with nothing above");
-    assert!(drawn(&out, 311), "no down mark with rows below");
-
-    for _ in 1..page.len() {
-        press(&mut a, Btn::Down);
-    }
-    assert_eq!(a.quick_menu(), page.last().copied());
-    assert_eq!(a.quick_scroll(), page.len() - QUICK_VISIBLE);
-    let out = frame(&a);
-    for (at, row) in page.iter().enumerate() {
-        assert_eq!(
-            drawn(&out, label(*row)),
-            at >= page.len() - QUICK_VISIBLE,
-            "{row:?} at the bottom"
-        );
-    }
-    assert!(drawn(&out, 310), "no up mark with rows above");
-    assert!(!drawn(&out, 311), "a down mark with nothing below");
-}
-
-#[test]
-fn the_list_only_moves_when_the_bar_would_leave_it() {
-    let (_d, mut a, _) = on_carousel();
-    open_at(&mut a, QuickRow::FastForward);
-    let page = QuickRow::GAME;
-    for at in 1..page.len() {
-        press(&mut a, Btn::Down);
-        assert_eq!(
-            a.quick_scroll(),
-            (at + 1).saturating_sub(QUICK_VISIBLE),
-            "down to {at}"
-        );
-    }
-    let top = page.len() - QUICK_VISIBLE;
-    for at in (top..page.len() - 1).rev() {
-        press(&mut a, Btn::Up);
-        assert_eq!(a.quick_scroll(), top, "up to {at} moved the list");
-    }
-    press(&mut a, Btn::Up);
-    assert_eq!(a.quick_scroll(), top - 1);
-    press(&mut a, Btn::Down);
-    assert_eq!(a.quick_scroll(), top - 1, "down again moved the list");
-}
-
-#[test]
-fn wrapping_round_the_gameplay_page_shows_the_other_end() {
-    let (_d, mut a, _) = on_carousel();
-    open_at(&mut a, QuickRow::FastForward);
-    press(&mut a, Btn::Up);
-    assert_eq!(a.quick_menu(), QuickRow::GAME.last().copied());
-    assert_eq!(a.quick_scroll(), QuickRow::GAME.len() - QUICK_VISIBLE);
-    press(&mut a, Btn::Down);
-    assert_eq!(a.quick_menu(), Some(QuickRow::FastForward));
-    assert_eq!(a.quick_scroll(), 0);
-}
-
-#[test]
-fn coming_back_to_the_gameplay_page_starts_at_its_top() {
-    let (_d, mut a, _) = on_carousel();
-    open_at(&mut a, QuickRow::FastForward);
-    press(&mut a, Btn::Up);
-    press(&mut a, Btn::B);
-    press(&mut a, Btn::A);
-    assert_eq!(a.quick_menu(), Some(QuickRow::FastForward));
-    assert_eq!(a.quick_scroll(), 0);
-    press(&mut a, Btn::Down);
-    assert_eq!(
-        a.quick_scroll(),
-        0,
-        "the first step down scrolled a list at its top"
-    );
-}
-
-#[test]
-fn pages_of_six_rows_or_fewer_never_scroll() {
-    for page in [&QuickRow::MAIN[..], &QuickRow::SCREEN[..]] {
-        assert!(page.len() <= QUICK_VISIBLE);
+fn no_row_in_hand_runs_its_arrows_into_its_label() {
+    let (_d, mut a) = on_own_wallpaper(slot_store::WallpaperTint::Off);
+    let id = TexId::from_raw;
+    a.set_quick_menu_faces(QuickMenuFaces {
+        labels: QuickRow::ALL
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                let w = slot_ui::quick_label_face(*r, true).w;
+                [(id(100 + i), w, 40), (id(150 + i), w, 40)]
+            })
+            .collect(),
+        pointer: (id(700), 32, 48),
+        values: QuickValue::ALL
+            .iter()
+            .enumerate()
+            .map(|(i, v)| {
+                let w = slot_ui::quick_value_face(v.text(), true).w;
+                [(id(200 + i), w, 40), (id(230 + i), w, 40)]
+            })
+            .collect(),
+        carets: [false, true].map(|right| {
+            let f = slot_ui::quick_caret_face(right);
+            (id(300 + right as usize), f.w, f.h)
+        }),
+        legend: [(id(400), 70), (id(401), 110), (id(402), 80), (id(403), 90)],
+    });
+    for page in [
+        &QuickRow::SCREEN[..],
+        &QuickRow::GAME[..],
+        &QuickRow::GENERAL[..],
+    ] {
         for &row in page {
-            assert_eq!(slot_ui::quick_scroll(row, 5), 0, "{row:?}");
+            if row.opens() {
+                continue;
+            }
+            open_at(&mut a, row);
+            let out = frame(&a);
+            let [lx, _, lw, _] = placed(&out, 150 + row.index()).expect("the lit label");
+            let label_ends = lx + lw - MENU_PAD as f32;
+            if let Some([cx, ..]) = placed(&out, 300) {
+                assert!(
+                    cx - label_ends >= 16.0,
+                    "{row:?} in hand puts its arrow {} px from its label",
+                    cx - label_ends
+                );
+            }
+            while a.quick_menu().is_some() {
+                press(&mut a, Btn::B);
+            }
         }
     }
+}
+
+#[test]
+fn the_about_label_sits_on_the_same_tinted_ground_as_the_menu() {
+    let (_d, mut a, _) = on_carousel();
+    fake_faces(&mut a);
+    a.set_ground(TexId::from_raw(800));
+    a.set_blur(TexId::from_raw(801));
+    open_at(&mut a, QuickRow::About);
+    let menu = frame(&a);
+    press(&mut a, Btn::A);
+    assert!(matches!(a.phase(), Phase::About), "{:?}", a.phase());
+    let about = frame(&a);
+    assert!(
+        matches!(menu[0], Draw::Tex { tex, .. } if tex == TexId::from_raw(801)),
+        "the menu is not on the blurred wallpaper"
+    );
+    assert!(
+        matches!(menu[1], Draw::Rect { colour, .. } if colour[..3] == [0.0; 3] && colour[3] > 0.5),
+        "the menu's wallpaper is not tinted"
+    );
+    assert_eq!(
+        about[..2],
+        menu[..2],
+        "the About label is not on the menu's tinted ground"
+    );
+}
+
+fn on_own_wallpaper(tint: slot_store::WallpaperTint) -> (TempDir, App) {
+    let (d, _, _) = on_carousel_with(SlotState {
+        wallpaper: WallpaperPick::File("bright.png".into()),
+        wallpaper_tint: tint,
+        ..SlotState::default()
+    });
+    let dir = d.path().join("Wallpapers");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("bright.png"), b"png").unwrap();
+    let (mut a, _) = app_booting_at(d.path(), CLOCK_IS_SET);
+    a.set_ground(TexId::from_raw(800));
+    a.set_wallpaper(TexId::from_raw(802));
+    (d, a)
+}
+
+fn black_washes(draws: &[Draw]) -> Vec<f32> {
+    draws
+        .iter()
+        .filter_map(|d| match d {
+            Draw::Rect { x, y, w, h, colour }
+                if *x == 0.0
+                    && *y == 0.0
+                    && *w == OUT_W as f32
+                    && *h == slot_ui::OUT_H as f32
+                    && colour[..3] == [0.0; 3] =>
+            {
+                Some(colour[3])
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn wallpaper_tint_hides_until_a_wallpaper_of_your_own_is_picked() {
+    let (d, mut a, _) = on_carousel();
+    let dir = d.path().join("Wallpapers");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.png"), b"png").unwrap();
+    open_at(&mut a, QuickRow::Wallpaper);
+    press(&mut a, Btn::Down);
+    assert_eq!(
+        a.quick_menu(),
+        Some(QuickRow::Theme),
+        "the tint row showed on the default wallpaper"
+    );
+    press(&mut a, Btn::Up);
+    for (pick, shown) in [
+        (WallpaperPick::Blur, false),
+        (WallpaperPick::File("a.png".into()), true),
+        (WallpaperPick::None, false),
+        (WallpaperPick::Random, true),
+        (WallpaperPick::Default, false),
+    ] {
+        press(&mut a, Btn::Right);
+        assert_eq!(a.resolved_wallpaper(), pick);
+        press(&mut a, Btn::Down);
+        let below = if shown {
+            QuickRow::WallpaperTint
+        } else {
+            QuickRow::Theme
+        };
+        assert_eq!(a.quick_menu(), Some(below), "below {pick:?}");
+        press(&mut a, Btn::Up);
+    }
+}
+
+#[test]
+fn wallpaper_tint_steps_off_low_medium_high_and_saves() {
+    use slot_store::WallpaperTint;
+    let (d, mut a) = on_own_wallpaper(WallpaperTint::Off);
+    open_at(&mut a, QuickRow::WallpaperTint);
+    assert_eq!(
+        a.quick_value(QuickRow::WallpaperTint),
+        Some(QuickValue::Off)
+    );
+    for (value, tint) in [
+        (QuickValue::Low, WallpaperTint::Low),
+        (QuickValue::Medium, WallpaperTint::Medium),
+        (QuickValue::High, WallpaperTint::High),
+        (QuickValue::Off, WallpaperTint::Off),
+    ] {
+        press(&mut a, Btn::Right);
+        assert_eq!(a.quick_value(QuickRow::WallpaperTint), Some(value));
+        assert_eq!(read_slot_state(d.path()).wallpaper_tint, tint);
+    }
+    press(&mut a, Btn::Left);
+    assert_eq!(
+        a.quick_value(QuickRow::WallpaperTint),
+        Some(QuickValue::High)
+    );
+}
+
+#[test]
+fn the_tint_darkens_your_own_wallpaper_on_the_shelf() {
+    use slot_store::WallpaperTint;
+    let (_d, a) = on_own_wallpaper(WallpaperTint::Off);
+    assert_eq!(black_washes(&frame(&a)), Vec::<f32>::new());
+    let mut seen = Vec::new();
+    for tint in [
+        WallpaperTint::Low,
+        WallpaperTint::Medium,
+        WallpaperTint::High,
+    ] {
+        let (_d, a) = on_own_wallpaper(tint);
+        let draws = frame(&a);
+        let wall = draws
+            .iter()
+            .position(|d| matches!(d, Draw::Tex { tex, .. } if *tex == TexId::from_raw(802)))
+            .expect("the wallpaper was not drawn");
+        let washes = black_washes(&draws[wall..]);
+        assert_eq!(washes.len(), 1, "{tint:?}: {washes:?}");
+        seen.push(washes[0]);
+    }
+    assert!(
+        seen.windows(2).all(|w| w[0] < w[1]),
+        "each step is not darker than the last: {seen:?}"
+    );
+}
+
+#[test]
+fn the_tint_leaves_the_default_wallpaper_alone() {
+    let (_d, mut a, _) = on_carousel_with(SlotState {
+        wallpaper_tint: slot_store::WallpaperTint::High,
+        ..SlotState::default()
+    });
+    a.set_ground(TexId::from_raw(800));
+    assert_eq!(black_washes(&frame(&a)), Vec::<f32>::new());
 }

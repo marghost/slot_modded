@@ -1,11 +1,10 @@
 use std::io;
 use std::path::Path;
 
-use crate::{atomic_write, sort_key, Cart, Platform, CONFIG_DIR};
+use crate::{atomic_write, sort_key, Cart, Platform, Recent, SlotState, CONFIG_DIR, RECENTS_MAX};
 
 pub const FAVORITES_FILE: &str = "favourites.txt";
 pub const RECENTS_FILE: &str = "recents.txt";
-pub const RECENTS_MAX: usize = 10;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct CartKey {
@@ -51,16 +50,12 @@ impl CartKey {
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct Collections {
     pub favorites: Vec<CartKey>,
-    pub recents: Vec<CartKey>,
 }
 
 impl Collections {
     pub fn read(root: &Path) -> io::Result<Self> {
-        let mut recents = read_list(root, RECENTS_FILE)?;
-        recents.truncate(RECENTS_MAX);
         Ok(Collections {
             favorites: read_list(root, FAVORITES_FILE)?,
-            recents,
         })
     }
 
@@ -81,18 +76,8 @@ impl Collections {
         }
     }
 
-    pub fn played(&mut self, cart: &Cart) {
-        self.recents.retain(|k| !k.is(cart));
-        self.recents.insert(0, CartKey::of(cart));
-        self.recents.truncate(RECENTS_MAX);
-    }
-
     pub fn write_favorites(&self, root: &Path) -> io::Result<()> {
         write_list(root, FAVORITES_FILE, &self.favorites)
-    }
-
-    pub fn write_recents(&self, root: &Path) -> io::Result<()> {
-        write_list(root, RECENTS_FILE, &self.recents)
     }
 
     pub fn favorite_carts<'a>(&self, carts: impl Iterator<Item = &'a Cart>) -> Vec<Cart> {
@@ -100,13 +85,29 @@ impl Collections {
         out.sort_by_key(|c| (sort_key(&c.stem), c.platform as u8));
         out
     }
+}
 
-    pub fn recent_carts<'a>(&self, carts: impl Iterator<Item = &'a Cart> + Clone) -> Vec<Cart> {
-        self.recents
-            .iter()
-            .filter_map(|k| carts.clone().find(|c| k.is(c)).cloned())
-            .collect()
+pub fn import_legacy_recents(root: &Path, state: &mut SlotState) -> io::Result<bool> {
+    if !root.join(CONFIG_DIR).join(RECENTS_FILE).exists() {
+        return Ok(false);
     }
+    if state.recents.is_empty() {
+        let old = read_list(root, RECENTS_FILE)?;
+        state.show_recents |= !old.is_empty();
+        state.recents = old
+            .into_iter()
+            .take(RECENTS_MAX)
+            .map(|k| Recent {
+                platform: k.platform,
+                stem: k.stem,
+            })
+            .collect();
+    }
+    Ok(true)
+}
+
+pub fn remove_legacy_recents(root: &Path) -> io::Result<()> {
+    std::fs::remove_file(root.join(CONFIG_DIR).join(RECENTS_FILE))
 }
 
 fn read_list(root: &Path, file: &str) -> io::Result<Vec<CartKey>> {

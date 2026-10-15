@@ -4,14 +4,15 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
 
-use crate::cart::{cart_box, gb_shell_of, label_colour, label_text, CART_H, CART_W};
+use crate::board::{board_in, Placed};
+use crate::cart::{cart_box, gb_shell_of, is_clear, label_colour, label_text, CART_H, CART_W};
 use crate::favorite::FAVORITE_D;
 use crate::hud::Millis;
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
 
 const SIDE_SCALE: f32 = 0.78;
-const SIDE_ALPHA: f32 = 0.55;
+const SIDE_ALPHA: f32 = 1.0;
 
 static SLACK: AtomicU32 = AtomicU32::new(0);
 
@@ -33,7 +34,9 @@ pub fn rest_y(h: f32) -> f32 {
     } else {
         (OUT_H + CART_H) as f32 / 2.0 - h
     };
-    y - raise()
+    // A Game Boy pak is 337px in a 422px gap, which centres at 42.5. Snap to a
+    // whole pixel so the 312×337 bitmap hits the RG SP panel 1:1.
+    (y - raise()).round()
 }
 
 pub fn foot_y(h: f32) -> f32 {
@@ -44,23 +47,32 @@ const PART: f32 = 130.0;
 
 const SLOTS: i32 = 3;
 
-const REPEAT_DELAY_MS: Millis = 400;
+pub const REPEAT_DELAY_MS: Millis = 400;
 const REPEAT_MS: [Millis; 4] = [110, 85, 65, 50];
 const FAST_AFTER: usize = 30;
 const FAST_STRIDE: usize = 3;
 const FAST_MIN_CARTS: usize = 60;
+
+pub fn repeat_gap(fired: usize) -> Millis {
+    REPEAT_MS[fired.min(REPEAT_MS.len() - 1)]
+}
 
 pub struct Shelf {
     pub carts: Vec<Cart>,
     pub index: usize,
     pub scroll: f32,
     faces: Vec<Option<TexId>>,
+    interiors: Vec<Option<TexId>>,
     favorites: HashSet<(Platform, String)>,
     favorite_face: Option<TexId>,
     shadow: Option<TexId>,
     gb_shadow: Option<TexId>,
     gbc_shadow: Option<TexId>,
+    backing: Option<TexId>,
+    gb_backing: Option<TexId>,
+    gbc_backing: Option<TexId>,
     shells: Vec<OnceLock<Option<GbShell>>>,
+    clears: Vec<OnceLock<bool>>,
     ride: f32,
     vel: f32,
     held: Option<(i32, Millis, usize)>,
@@ -70,7 +82,9 @@ impl Shelf {
     pub fn new(carts: Vec<Cart>) -> Self {
         Shelf {
             shells: carts.iter().map(|_| OnceLock::new()).collect(),
+            clears: carts.iter().map(|_| OnceLock::new()).collect(),
             faces: vec![None; carts.len()],
+            interiors: vec![None; carts.len()],
             favorites: HashSet::new(),
             favorite_face: None,
             carts,
@@ -79,6 +93,9 @@ impl Shelf {
             shadow: None,
             gb_shadow: None,
             gbc_shadow: None,
+            backing: None,
+            gb_backing: None,
+            gbc_backing: None,
             ride: 0.0,
             vel: 0.0,
             held: None,
@@ -86,10 +103,34 @@ impl Shelf {
     }
 
     fn shell(&self, i: usize) -> Option<GbShell> {
-        let cart = self.carts.get(i)?;
-        self.shells
-            .get(i)
-            .and_then(|once| *once.get_or_init(|| gb_shell_of(cart)))
+        let (Some(cell), Some(cart)) = (self.shells.get(i), self.carts.get(i)) else {
+            return None;
+        };
+        *cell.get_or_init(|| gb_shell_of(cart))
+    }
+
+    fn clear(&self, i: usize) -> bool {
+        let (Some(cell), Some(cart)) = (self.clears.get(i), self.carts.get(i)) else {
+            return false;
+        };
+        *cell.get_or_init(|| is_clear(cart))
+    }
+
+    pub fn restock(&mut self, carts: Vec<Cart>) -> Vec<TexId> {
+        let old: Vec<TexId> = self
+            .faces
+            .drain(..)
+            .chain(self.interiors.drain(..))
+            .flatten()
+            .collect();
+        self.shells = carts.iter().map(|_| OnceLock::new()).collect();
+        self.clears = carts.iter().map(|_| OnceLock::new()).collect();
+        self.faces = vec![None; carts.len()];
+        self.interiors = vec![None; carts.len()];
+        self.carts = carts;
+        self.held = None;
+        self.select(0);
+        old
     }
 
     pub fn set_favorites(&mut self, favorites: HashSet<(Platform, String)>) {
@@ -109,24 +150,32 @@ impl Shelf {
             .carts
             .get(self.index)
             .map(|c| (c.platform, c.stem.clone()));
-        let mut faces: HashMap<(Platform, String), TexId> = self
-            .carts
-            .iter()
-            .zip(self.faces.drain(..))
-            .filter_map(|(c, face)| face.map(|f| ((c.platform, c.stem.clone()), f)))
-            .collect();
+        let keyed =
+            |old: &[Cart], texs: Vec<Option<TexId>>| -> HashMap<(Platform, String), TexId> {
+                old.iter()
+                    .zip(texs)
+                    .filter_map(|(c, tex)| tex.map(|t| ((c.platform, c.stem.clone()), t)))
+                    .collect()
+            };
+        let mut faces = keyed(&self.carts, self.faces.drain(..).collect());
+        let mut interiors = keyed(&self.carts, self.interiors.drain(..).collect());
         self.faces = carts
             .iter()
             .map(|c| faces.remove(&(c.platform, c.stem.clone())))
             .collect();
+        self.interiors = carts
+            .iter()
+            .map(|c| interiors.remove(&(c.platform, c.stem.clone())))
+            .collect();
         self.shells = carts.iter().map(|_| OnceLock::new()).collect();
+        self.clears = carts.iter().map(|_| OnceLock::new()).collect();
         let index = selected
             .and_then(|(p, stem)| carts.iter().position(|c| c.platform == p && c.stem == stem))
             .unwrap_or(self.index.min(carts.len().saturating_sub(1)));
         self.carts = carts;
         self.release_hold();
         self.select(index);
-        faces.into_values().collect()
+        faces.into_values().chain(interiors.into_values()).collect()
     }
 
     pub fn select(&mut self, i: usize) {
@@ -147,6 +196,17 @@ impl Shelf {
         }
     }
 
+    pub fn set_backing(&mut self, face: TexId) {
+        self.backing = Some(face);
+    }
+
+    pub fn set_gb_backing(&mut self, shell: GbShell, face: TexId) {
+        match shell {
+            GbShell::Notched => self.gb_backing = Some(face),
+            GbShell::Rounded => self.gbc_backing = Some(face),
+        }
+    }
+
     pub fn set_faces(&mut self, faces: Vec<TexId>) {
         let mut faces = faces.into_iter();
         for face in &mut self.faces {
@@ -160,6 +220,14 @@ impl Shelf {
 
     pub fn set_face(&mut self, i: usize, tex: TexId) -> Option<TexId> {
         self.faces.get_mut(i).and_then(|f| f.replace(tex))
+    }
+
+    pub fn set_interior(&mut self, i: usize, tex: TexId) -> Option<TexId> {
+        self.interiors.get_mut(i).and_then(|f| f.replace(tex))
+    }
+
+    pub fn take_interior(&mut self, i: usize) -> Option<TexId> {
+        self.interiors.get_mut(i).and_then(Option::take)
     }
 
     pub fn take_face(&mut self, i: usize) -> Option<TexId> {
@@ -200,6 +268,28 @@ impl Shelf {
             }
         }
         out
+    }
+
+    /// What a see-through cart shows behind its front shell, back plastic first and then the board.
+    /// The shelf draws these under the face. The slot has to as well, or the board vanishes
+    /// as the cart goes in or comes out.
+    pub fn behind(&self, stem: &str) -> [Option<TexId>; 2] {
+        let i = match self.carts.get(self.index) {
+            Some(c) if c.stem == stem => self.index,
+            _ => match self.carts.iter().position(|c| c.stem == stem) {
+                Some(i) => i,
+                None => return [None, None],
+            },
+        };
+        if !self.clear(i) || self.face(i).is_none() {
+            return [None, None];
+        }
+        let board = match self.shell(i) {
+            None => self.backing,
+            Some(GbShell::Notched) => self.gb_backing,
+            Some(GbShell::Rounded) => self.gbc_backing,
+        };
+        [self.interiors.get(i).copied().flatten(), board]
     }
 
     pub fn find(&self, stem: &str) -> Option<(&Cart, Option<TexId>)> {
@@ -327,8 +417,7 @@ impl Shelf {
         for _ in 0..stride {
             self.step(by);
         }
-        let rate = REPEAT_MS[fired.min(REPEAT_MS.len() - 1)];
-        self.held = Some((by, now + rate, fired + 1));
+        self.held = Some((by, now + repeat_gap(fired), fired + 1));
     }
 
     fn step(&mut self, by: i32) {
@@ -377,9 +466,9 @@ impl Shelf {
         self.scroll += self.vel * dt;
     }
 
-    pub fn draw(&self, shake: f32, out: &mut Vec<Draw>) {
+    pub fn draw(&self, shake: f32, slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {
         self.draw_row(None, shake, 0.0, 1.0, out);
-        draw_empty_slot(out);
+        draw_empty_slot(slot, out);
     }
 
     pub fn draw_row(
@@ -429,6 +518,47 @@ impl Shelf {
                         h,
                         tex,
                         alpha: recede_alpha(alpha),
+                    });
+                }
+            }
+            if self.clear(i) && self.face(i).is_some() {
+                let board = match self.shell(i) {
+                    None => self.backing,
+                    Some(GbShell::Notched) => self.gb_backing,
+                    Some(GbShell::Rounded) => self.gbc_backing,
+                };
+                let gba = self.shell(i).is_none();
+                // A GBA cart's board and back shell fill the cart's box, exactly where the
+                // picker lifts them from; a Game Boy pak's backing fills its box.
+                let Placed {
+                    x: bx,
+                    y: by,
+                    w: bw,
+                    h: bh,
+                } = if gba {
+                    board_in(Placed { x, y, w, h })
+                } else {
+                    Placed { x, y, w, h }
+                };
+                // Back plastic, then the board, then the front shell.
+                if let Some(tex) = self.interiors.get(i).copied().flatten() {
+                    out.push(Draw::Tex {
+                        x: bx,
+                        y: by,
+                        w: bw,
+                        h: bh,
+                        tex,
+                        alpha: alpha * dim,
+                    });
+                }
+                if let Some(tex) = board {
+                    out.push(Draw::Tex {
+                        x: bx,
+                        y: by,
+                        w: bw,
+                        h: bh,
+                        tex,
+                        alpha: alpha * dim,
                     });
                 }
             }

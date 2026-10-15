@@ -140,7 +140,9 @@ struct Trace {
 
 impl Trace {
     fn start(root: &Path, dev: &Path, sys: &Path) -> Option<Arc<Trace>> {
-        let path = root.join(trace::TRACE_FILE);
+        let dir = crate::root::logs_dir(root);
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join(trace::TRACE_FILE);
         let mut file = match File::create(&path) {
             Ok(f) => f,
             Err(e) => {

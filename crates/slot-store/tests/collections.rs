@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use slot_store::{Cart, Collections, Platform, RECENTS_MAX};
+use slot_store::{
+    import_legacy_recents, remove_legacy_recents, Cart, Collections, Platform, Recent, SlotState,
+    RECENTS_MAX,
+};
 
 fn cart(platform: Platform, stem: &str) -> Cart {
     Cart {
@@ -15,7 +18,7 @@ fn cart(platform: Platform, stem: &str) -> Cart {
 }
 
 #[test]
-fn a_card_without_the_files_has_no_favorites_or_recents() {
+fn a_card_without_the_file_has_no_favorites() {
     let d = tempfile::tempdir().unwrap();
     assert_eq!(Collections::read(d.path()).unwrap(), Collections::default());
 }
@@ -47,26 +50,6 @@ fn the_same_name_on_two_platforms_is_two_games() {
 }
 
 #[test]
-fn recents_put_the_last_game_first_without_repeats() {
-    let mut c = Collections::default();
-    for stem in ["A", "B", "A", "C"] {
-        c.played(&cart(Platform::Gba, stem));
-    }
-    let stems: Vec<&str> = c.recents.iter().map(|k| k.stem.as_str()).collect();
-    assert_eq!(stems, ["C", "A", "B"]);
-}
-
-#[test]
-fn recents_keep_only_the_last_ten() {
-    let mut c = Collections::default();
-    for i in 0..15 {
-        c.played(&cart(Platform::Gba, &format!("Game {i}")));
-    }
-    assert_eq!(c.recents.len(), RECENTS_MAX);
-    assert_eq!(c.recents[0].stem, "Game 14");
-}
-
-#[test]
 fn favorite_carts_are_sorted_and_missing_games_are_hidden_but_kept() {
     let mut c = Collections::default();
     for (p, stem) in [
@@ -91,20 +74,6 @@ fn favorite_carts_are_sorted_and_missing_games_are_hidden_but_kept() {
 }
 
 #[test]
-fn recent_carts_follow_the_play_order() {
-    let mut c = Collections::default();
-    c.played(&cart(Platform::Gba, "Zelda"));
-    c.played(&cart(Platform::Gba, "Metroid"));
-    let shelf = [cart(Platform::Gba, "Metroid"), cart(Platform::Gba, "Zelda")];
-    let stems: Vec<String> = c
-        .recent_carts(shelf.iter())
-        .into_iter()
-        .map(|c| c.stem)
-        .collect();
-    assert_eq!(stems, ["Metroid", "Zelda"]);
-}
-
-#[test]
 fn bad_and_repeated_lines_are_skipped() {
     let d = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(d.path().join("Config")).unwrap();
@@ -116,4 +85,65 @@ fn bad_and_repeated_lines_are_skipped() {
     let c = Collections::read(d.path()).unwrap();
     let stems: Vec<&str> = c.favorites.iter().map(|k| k.stem.as_str()).collect();
     assert_eq!(stems, ["Zelda", "Pokemon Crystal"]);
+}
+
+fn old_recents(text: &str) -> tempfile::TempDir {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("Config")).unwrap();
+    std::fs::write(d.path().join("Config/recents.txt"), text).unwrap();
+    d
+}
+
+#[test]
+fn an_old_recents_file_moves_into_the_state_and_shows_the_shelf() {
+    let d = old_recents("gbc/Pokemon Crystal\ngba/Zelda\nnes/Mario\n");
+    let mut s = SlotState::default();
+    assert!(import_legacy_recents(d.path(), &mut s).unwrap());
+    assert!(s.show_recents);
+    assert_eq!(
+        s.recents,
+        [
+            Recent {
+                platform: Platform::Gbc,
+                stem: "Pokemon Crystal".into()
+            },
+            Recent {
+                platform: Platform::Gba,
+                stem: "Zelda".into()
+            }
+        ]
+    );
+    remove_legacy_recents(d.path()).unwrap();
+    assert!(!d.path().join("Config/recents.txt").exists());
+    assert!(!import_legacy_recents(d.path(), &mut s).unwrap());
+}
+
+#[test]
+fn an_old_recents_file_keeps_only_the_last_ten() {
+    let text: String = (0..15).map(|i| format!("gba/Game {i}\n")).collect();
+    let d = old_recents(&text);
+    let mut s = SlotState::default();
+    import_legacy_recents(d.path(), &mut s).unwrap();
+    assert_eq!(s.recents.len(), RECENTS_MAX);
+    assert_eq!(s.recents[0].stem, "Game 0");
+}
+
+#[test]
+fn an_old_recents_file_never_replaces_recents_already_in_the_state() {
+    let d = old_recents("gba/Zelda\n");
+    let mut s = SlotState::default();
+    s.played(Platform::Gb, "Tetris");
+    assert!(import_legacy_recents(d.path(), &mut s).unwrap());
+    assert!(!s.show_recents);
+    assert_eq!(s.recents.len(), 1);
+    assert_eq!(s.recents[0].stem, "Tetris");
+}
+
+#[test]
+fn an_empty_old_recents_file_leaves_the_shelf_hidden() {
+    let d = old_recents("");
+    let mut s = SlotState::default();
+    assert!(import_legacy_recents(d.path(), &mut s).unwrap());
+    assert!(!s.show_recents);
+    assert!(s.recents.is_empty());
 }
