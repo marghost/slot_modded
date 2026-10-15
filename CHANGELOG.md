@@ -3,6 +3,23 @@
 Fork versions read `v<slot version>-mod.<feature>.<update>`: the first mod number goes up with new fork features, the
 second with upstream merges, fixes and small changes.
 
+## v1.6.0-mod.4.0 (marghost fork, not released yet)
+
+Changes made in this fork since v1.6.0-mod.3.1. Written by Claude Opus (AI), see the
+[Fork AI Disclosure](README.md#fork-ai-disclosure):
+
+- On 4:3 screens such as the RG35XXSP, Settings, About, Date & Time and the Button Cheat Sheet now fill the whole
+  screen, with no black strip under them. The shelves keep the strip until the original slot finishes its own fix
+  ([slot issue #91](https://github.com/BrandonKowalski/slot/issues/91)).
+- The Button Cheat Sheet has a new look that matches Settings: your wallpaper or theme behind it, each button in a
+  white key cap, page dots, and the usual Page / Back hints. It looks the same in game.
+- Settings: MENU → General → Favorites shows or hides the Favorites shelf (shown by default). Your favorites and
+  hearts are kept while it is hidden.
+- In a GB or GBC game, the bezel now stays until the in-game menu or the save state switcher actually opens, instead
+  of flashing the GBA SP frame first.
+- The save state switcher reads "START Button Help".
+- Settings → About: the badge reads "_modded" and the full version (v1.6.0-mod.4.0) sits in the bottom-right corner.
+
 ## [v1.6.0-mod.3.1](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.3.1) (marghost fork)
 
 Changes made in this fork since v1.6.0-mod.3 (2026-10-14). Written by Claude Opus (AI), see the
