@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use slot_gfx::{Canvas, OUT_H, OUT_W};
+use slot_gfx::{Canvas, Layout, OUT_H, OUT_W};
 use slot_input::{Action, Btn, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power};
 use slot_retro::LinkChannel;
@@ -2726,8 +2726,24 @@ impl App {
         };
     }
 
+    pub fn layout(&self) -> Layout {
+        let sheet_in_game = match self.phase {
+            Phase::Playing { .. } => self.in_game_menu.is_some() && self.menu_sheet.is_some(),
+            Phase::Polaroids { .. } => self.switcher_sheet.is_some(),
+            _ => false,
+        };
+        match self.phase {
+            Phase::QuickMenu { .. }
+            | Phase::About
+            | Phase::CheatSheet { .. }
+            | Phase::SetClock { .. } => Layout::Native,
+            _ if sheet_in_game => Layout::Native,
+            _ => Layout::Framed,
+        }
+    }
+
     pub fn canvas(&self) -> Canvas {
-        Canvas::FRAMED
+        Canvas::of(self.layout(), self.panel)
     }
 
     pub fn frame_lift(&self) -> f32 {
@@ -3111,8 +3127,7 @@ impl App {
                 return;
             }
             Phase::CheatSheet { .. } => {
-                slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
-                draw_cheat_sheet(self.cheat_sheet_face, out);
+                self.draw_sheet(out);
                 return;
             }
             Phase::Inserting { cart, resumed, .. } => {
@@ -3134,9 +3149,7 @@ impl App {
                 self.chrome(cart, 0.0, out);
             }
             Phase::Playing { .. } => self.push_game(out),
-            Phase::Polaroids { .. } if self.switcher_sheet.is_some() => {
-                draw_cheat_sheet(self.cheat_sheet_face, out);
-            }
+            Phase::Polaroids { .. } if self.switcher_sheet.is_some() => self.draw_sheet(out),
             Phase::Polaroids { .. } => {
                 self.push_game(out);
                 if let Some(p) = &self.polaroids {
@@ -3163,7 +3176,7 @@ impl App {
         if let (Some(_), Some(_), Phase::Playing { .. }) =
             (self.in_game_menu, self.menu_sheet, &self.phase)
         {
-            draw_cheat_sheet(self.cheat_sheet_face, out);
+            self.draw_sheet(out);
         } else if let (Some(row), Phase::Playing { .. }, true) =
             (self.in_game_menu_shown(), &self.phase, self.screen >= 1.0)
         {
@@ -3203,6 +3216,11 @@ impl App {
             Some(area) => self.hud.draw_within(self.canvas(), self.now(), area, out),
             None => self.hud.draw(self.canvas(), self.now(), out),
         }
+    }
+
+    fn draw_sheet(&self, out: &mut Vec<Draw>) {
+        slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
+        draw_cheat_sheet(self.canvas(), self.cheat_sheet_face, out);
     }
 
     pub fn screen_shake(&self) -> f32 {

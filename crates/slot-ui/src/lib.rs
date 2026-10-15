@@ -54,9 +54,8 @@ pub use cart::{
     GB_LABEL_W, GB_LABEL_X, GB_LABEL_Y, LABEL_H, LABEL_W, LABEL_WELL, LABEL_X, LABEL_Y,
 };
 pub use cheat_sheet::{
-    cheat_sheet_face, cheat_width, draw_cheat_sheet, CheatPage, CHEAT_BAR, CHEAT_DESC_X,
-    CHEAT_FOOTER_H, CHEAT_GAP, CHEAT_GROUND, CHEAT_HEADER_H, CHEAT_KEY, CHEAT_MARGIN, CHEAT_PAGES,
-    CHEAT_TEXT_PX,
+    cheat_chip_width, cheat_columns, cheat_sheet_face, cheat_width, draw_cheat_sheet, CheatPage,
+    CHEAT_CHIP, CHEAT_CHIP_H, CHEAT_GAP, CHEAT_INK, CHEAT_LEGEND_Y, CHEAT_PAGES, CHEAT_TEXT_PX,
 };
 pub use clock::{clock_label, date_time_text, hhmm, set_clock_hint_face, ClockPicker, Field};
 pub use draw::{Canvas, Draw, Layout, TexId, OUT_H, OUT_W};

@@ -84,7 +84,7 @@ struct QuickClock {
 #[derive(Default)]
 struct CheatSheetFace {
     tex: Option<TexId>,
-    page: Option<usize>,
+    page: Option<(usize, u32)>,
 }
 
 #[derive(Default)]
@@ -528,7 +528,7 @@ impl Frontend {
         compositor.set_game_bezel(self.session.app().shown_game_bezel());
         compositor.set_game_source_rect(self.session.app().source_rect());
         self.grab_link_shot(compositor);
-        compositor.begin_frame(slot_gfx::Layout::Framed);
+        compositor.begin_frame(self.session.app().layout());
         if self.draw_rebuild(compositor) {
             return;
         }
@@ -1051,11 +1051,12 @@ fn sync_cheat_sheet(app: &mut App, compositor: &mut Compositor, state: &mut Chea
     let Some(page) = app.cheat_sheet_page() else {
         return;
     };
-    if state.tex.is_some() && state.page == Some(page) {
+    let width = app.canvas().w as u32;
+    if state.tex.is_some() && state.page == Some((page, width)) {
         return;
     }
-    state.page = Some(page);
-    let id = upload(compositor, &mut state.tex, cheat_sheet_face(page));
+    state.page = Some((page, width));
+    let id = upload(compositor, &mut state.tex, cheat_sheet_face(page, width));
     app.set_cheat_sheet_face(id);
 }
 

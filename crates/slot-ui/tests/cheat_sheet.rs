@@ -1,71 +1,59 @@
 use slot_ui::{
-    cheat_sheet_face, cheat_width, CHEAT_BAR, CHEAT_DESC_X, CHEAT_FOOTER_H, CHEAT_GAP,
-    CHEAT_GROUND, CHEAT_HEADER_H, CHEAT_KEY, CHEAT_MARGIN, CHEAT_PAGES, CHEAT_TEXT_PX, OUT_H,
+    cheat_columns, cheat_sheet_face, CHEAT_CHIP, CHEAT_CHIP_H, CHEAT_LEGEND_Y, CHEAT_PAGES, OUT_H,
     OUT_W,
 };
 
-fn at(rgba: &[u8], x: u32, y: u32) -> [u8; 3] {
-    let i = ((y * OUT_W + x) * 4) as usize;
-    [rgba[i], rgba[i + 1], rgba[i + 2]]
+const NATIVE_W: u32 = 640;
+
+fn at(rgba: &[u8], w: u32, x: u32, y: u32) -> [u8; 4] {
+    let i = ((y * w + x) * 4) as usize;
+    [rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]]
 }
 
 #[test]
-fn every_line_fits_its_column() {
+fn every_row_fits_the_native_and_framed_canvas() {
+    let (_, block) = cheat_columns();
+    assert!(block + 32.0 <= NATIVE_W as f32, "rows are {block} px wide");
+    assert!(block + 32.0 <= OUT_W as f32);
+}
+
+#[test]
+fn every_page_fits_above_the_legend() {
     for page in &CHEAT_PAGES {
-        for (key, what) in page.rows.iter().chain(page.after_rule) {
-            let key_end = CHEAT_MARGIN + cheat_width(key, CHEAT_TEXT_PX);
-            assert!(
-                key_end + CHEAT_GAP <= CHEAT_DESC_X,
-                "{key:?} runs into the description column"
-            );
-            let what_end = CHEAT_DESC_X + cheat_width(what, CHEAT_TEXT_PX);
-            assert!(
-                what_end <= OUT_W as f32 - CHEAT_MARGIN,
-                "{what:?} runs off the screen"
-            );
-        }
+        let rows = page.rows.len() + page.after_rule.len();
+        assert!(rows <= 9, "{} has {rows} rows", page.title);
+    }
+    assert!(108.0 + 8.0 * 34.0 + CHEAT_CHIP_H as f32 / 2.0 < CHEAT_LEGEND_Y as f32);
+}
+
+#[test]
+fn the_sheet_is_see_through_so_the_menu_ground_shows() {
+    for w in [NATIVE_W, OUT_W] {
+        let face = cheat_sheet_face(0, w);
+        assert_eq!((face.w, face.h), (w, OUT_H));
+        assert_eq!(at(&face.rgba, w, 2, 2)[3], 0);
+        assert_eq!(at(&face.rgba, w, w - 3, OUT_H - 3)[3], 0);
     }
 }
 
 #[test]
-fn each_page_fills_the_screen_with_its_bars() {
+fn every_page_shows_button_chips() {
     for page in 0..CHEAT_PAGES.len() {
-        let face = cheat_sheet_face(page);
-        assert_eq!((face.w, face.h), (OUT_W, OUT_H));
-        assert!(
-            face.rgba.chunks_exact(4).all(|p| p[3] == 255),
-            "page {page} has holes"
-        );
-        assert_eq!(at(&face.rgba, 2, 2), CHEAT_BAR, "page {page}: no header");
-        assert_eq!(
-            at(&face.rgba, 2, OUT_H - 2),
-            CHEAT_BAR,
-            "page {page}: no footer"
-        );
-        assert_eq!(
-            at(&face.rgba, 2, OUT_H / 2),
-            CHEAT_GROUND,
-            "page {page}: no ground"
-        );
-    }
-}
-
-#[test]
-fn the_buttons_are_inked_in_the_key_colour_inside_the_body() {
-    for page in 0..CHEAT_PAGES.len() {
-        let face = cheat_sheet_face(page);
-        let body = CHEAT_HEADER_H..OUT_H - CHEAT_FOOTER_H;
-        let keyed = body
-            .flat_map(|y| (0..CHEAT_DESC_X as u32).map(move |x| (x, y)))
-            .any(|(x, y)| at(&face.rgba, x, y) == CHEAT_KEY);
-        assert!(keyed, "page {page} shows no buttons");
+        let face = cheat_sheet_face(page, NATIVE_W);
+        let chips = (90..CHEAT_LEGEND_Y)
+            .flat_map(|y| (0..NATIVE_W / 2).map(move |x| (x, y)))
+            .filter(|&(x, y)| {
+                at(&face.rgba, NATIVE_W, x, y) == [CHEAT_CHIP[0], CHEAT_CHIP[1], CHEAT_CHIP[2], 255]
+            })
+            .count();
+        assert!(chips > 500, "page {page} shows no buttons");
     }
 }
 
 #[test]
 fn the_pages_differ() {
     let faces: Vec<_> = (0..CHEAT_PAGES.len())
-        .map(|p| cheat_sheet_face(p).rgba)
+        .map(|p| cheat_sheet_face(p, NATIVE_W).rgba)
         .collect();
     for (i, a) in faces.iter().enumerate() {
         for b in &faces[i + 1..] {
