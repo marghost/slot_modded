@@ -21,7 +21,7 @@ const MARGIN: f32 = 16.0;
 pub const LEGEND: [(&str, &str); 4] = [
     ("B", "Back"),
     ("Y", "Delete"),
-    (HELP_KEY, "Help"),
+    (HELP_KEY, "Button Help"),
     ("A", "Load"),
 ];
 const WAYS_OUT: usize = 2;
@@ -221,20 +221,28 @@ impl Polaroids {
         let tail = &widths[WAYS_OUT..];
         let tail_w = tail.iter().sum::<f32>() + HINT_GAP * (tail.len() - 1) as f32;
         let mut x = MARGIN;
+        let mut free = (MARGIN, OUT_W as f32 - MARGIN);
         for (i, (w, (face, _))) in widths.iter().zip(&hints).enumerate() {
             if i == WAYS_OUT {
+                free.0 = x;
                 x = OUT_W as f32 - MARGIN - tail_w;
+                free.1 = x - HINT_GAP;
             }
             out.push(hint_quad(x, y, *w, self.hint_faces.get(*face).copied()));
             x += w + HINT_GAP;
         }
-        self.draw_dots(top, out);
+        self.draw_dots(top, free, out);
     }
 
-    fn draw_dots(&self, top: f32, out: &mut Vec<Draw>) {
+    /// Centred on the bar, unless that runs into a hint: then centred in the
+    /// gap between the left and right hints.
+    fn draw_dots(&self, top: f32, (lo, hi): (f32, f32), out: &mut Vec<Draw>) {
         let n = self.entries.len();
         let row = n as f32 * DOT + (n as f32 - 1.0).max(0.0) * DOT_GAP;
         let mut x = (OUT_W as f32 - row) / 2.0;
+        if x < lo || x + row > hi {
+            x = ((lo + hi - row) / 2.0).round();
+        }
         for i in 0..n {
             out.push(Draw::Rect {
                 x,
