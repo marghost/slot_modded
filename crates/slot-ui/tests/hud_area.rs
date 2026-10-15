@@ -1,4 +1,4 @@
-use slot_ui::{Draw, FfState, Hud, HudKind, Icon, TexId, Toast};
+use slot_ui::{Canvas, Draw, FfState, Hud, HudKind, Icon, TexId, Toast};
 
 const AREA: [f32; 4] = [120.0, 25.0, 480.0, 430.0];
 
@@ -32,7 +32,7 @@ fn the_volume_bar_and_fast_forward_badge_stay_in_the_window() {
     h.show(HudKind::Volume, 7, false, 0);
     h.set_ff(FfState::Latched);
     let mut out = Vec::new();
-    h.draw_within(10, AREA, &mut out);
+    h.draw_within(Canvas::FRAMED, 10, AREA, &mut out);
     inside(&out);
 }
 
@@ -41,7 +41,7 @@ fn the_rewind_bar_stays_in_the_window() {
     let mut h = hud();
     h.show(HudKind::Rewind, 50, false, 0);
     let mut out = Vec::new();
-    h.draw_within(10, AREA, &mut out);
+    h.draw_within(Canvas::FRAMED, 10, AREA, &mut out);
     inside(&out);
 }
 
@@ -50,7 +50,7 @@ fn a_banner_stays_in_the_window() {
     let mut h = hud();
     h.toast(Toast::StateSaved, 0);
     let mut out = Vec::new();
-    h.draw_within(10, AREA, &mut out);
+    h.draw_within(Canvas::FRAMED, 10, AREA, &mut out);
     inside(&out);
 }
 
@@ -59,7 +59,7 @@ fn without_a_window_the_hud_keeps_its_place() {
     let mut a = hud();
     a.show(HudKind::Volume, 7, false, 0);
     let (mut full, mut plain) = (Vec::new(), Vec::new());
-    a.draw(10, &mut plain);
-    a.draw_within(10, [0.0, 0.0, 720.0, 480.0], &mut full);
+    a.draw(Canvas::FRAMED, 10, &mut plain);
+    a.draw_within(Canvas::FRAMED, 10, [0.0, 0.0, 720.0, 480.0], &mut full);
     assert_eq!(full, plain);
 }

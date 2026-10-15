@@ -1,4 +1,4 @@
-use crate::draw::{Draw, TexId, OUT_H, OUT_W};
+use crate::draw::{Canvas, Draw, TexId, OUT_H, OUT_W};
 use crate::plate::{arrows_hint_face, centred_hints, hint_face, UndoFace, HINT_H, LEGEND_GAP};
 use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD, MENU_PX};
 use crate::slot_chrome::opening;
@@ -443,7 +443,6 @@ const TYPE_DROP: f32 = 4.0;
 const CARET_GAP: f32 = 14.0;
 const CARET_PX: f32 = 24.0;
 const LEGEND_Y: f32 = 427.0;
-pub const QUICK_SPLIT: f32 = LEGEND_Y - 2.0;
 const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
 const PANEL_GAP: f32 = 12.0;
 
@@ -575,12 +574,13 @@ pub struct QuickMenu<'a> {
     pub ground: Option<TexId>,
     pub palette: Option<[(TexId, u32, u32); 2]>,
     pub over_game: bool,
+    pub canvas: Canvas,
 }
 
 impl QuickMenu<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
         match (self.over_game, self.row.page() == QuickRow::PLAY_SCREEN) {
-            (false, _) => draw_menu_ground(self.ground, out),
+            (false, _) => draw_menu_ground(self.canvas, self.ground, out),
             (true, panel) => {
                 let y = match panel {
                     true => quick_row_top(self.row.page()[0], self.hidden) - PANEL_GAP,
@@ -589,7 +589,7 @@ impl QuickMenu<'_> {
                 out.push(Draw::Rect {
                     x: 0.0,
                     y,
-                    w: OUT_W as f32,
+                    w: self.canvas.w,
                     h: OUT_H as f32 - y,
                     colour: [0.0, 0.0, 0.0, GROUND_SCRIM],
                 });
@@ -598,7 +598,7 @@ impl QuickMenu<'_> {
         let Some(faces) = self.faces else {
             return;
         };
-        let (right, pad) = (OUT_W as f32 - QUICK_EDGE, MENU_PAD as f32);
+        let (right, pad) = (self.canvas.w - QUICK_EDGE, MENU_PAD as f32);
         let main_w = self
             .row
             .page()
@@ -612,7 +612,7 @@ impl QuickMenu<'_> {
             let lit = row == self.row;
             if let Some(&(tex, w, h)) = faces.labels.get(row.index()).map(|l| &l[lit as usize]) {
                 let x = match row.centred() {
-                    true => (OUT_W as f32 - main_w as f32) / 2.0,
+                    true => self.canvas.centred(main_w as f32),
                     false => QUICK_LABEL_X - pad,
                 };
                 push(out, tex, x, y, w, h);
@@ -652,23 +652,24 @@ impl QuickMenu<'_> {
             false => back,
         };
         let other = if self.row.opens() { open } else { change };
-        for (tex, w, x) in centred_hints(&[back, other], LEGEND_GAP) {
+        for (tex, w, x) in centred_hints(self.canvas, &[back, other], LEGEND_GAP) {
             push(out, tex, x, LEGEND_Y, w, HINT_H);
         }
     }
 }
 
-pub fn draw_menu_ground(ground: Option<TexId>, out: &mut Vec<Draw>) {
-    let (w, h) = (OUT_W as f32, OUT_H as f32);
+pub fn draw_menu_ground(canvas: Canvas, ground: Option<TexId>, out: &mut Vec<Draw>) {
+    let (w, h) = (canvas.w, OUT_H as f32);
     match ground {
         Some(tex) => {
-            out.push(Draw::Tex {
+            out.push(Draw::Part {
                 x: 0.0,
                 y: 0.0,
                 w,
                 h,
                 tex,
                 alpha: 1.0,
+                uv: canvas.window(OUT_W as f32),
             });
             out.push(Draw::Rect {
                 x: 0.0,

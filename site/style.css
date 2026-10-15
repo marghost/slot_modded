@@ -99,6 +99,17 @@ a.tab{text-decoration:none}
 .tab[aria-selected=true]{color:var(--ink);background:var(--rule)}
 .tab:focus-visible,.subtab:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
+.mast-gh{
+  justify-self:end;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  color:var(--muted);
+  transition:color .2s ease;
+}
+.mast-gh:hover{color:var(--ink)}
+.mast-gh:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
 .menu-btn{
   display:none;
   appearance:none;
@@ -574,7 +585,8 @@ kbd{
   .faq dd{font-size:18px}
   .endnote{font-size:18px}
 
-  .mast{padding:0 14px;gap:12px;grid-template-columns:1fr auto}
+  .mast{padding:0 14px;gap:8px;grid-template-columns:1fr auto auto}
+  .menu-btn{order:1}
   .mast-mark{font-size:19px}
   .menu-btn{display:grid}
   .tabs{

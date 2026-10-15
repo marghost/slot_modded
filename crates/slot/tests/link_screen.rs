@@ -150,7 +150,7 @@ fn a_searching_plug_sits_in_the_port() {
 fn texes(out: &[Draw]) -> Vec<TexId> {
     out.iter()
         .filter_map(|d| match d {
-            Draw::Tex { tex, .. } | Draw::Turned { tex, .. } => Some(*tex),
+            Draw::Tex { tex, .. } | Draw::Part { tex, .. } | Draw::Turned { tex, .. } => Some(*tex),
             _ => None,
         })
         .collect()

@@ -1,4 +1,4 @@
-use slot_gfx::OUT_W;
+use slot_gfx::Canvas;
 use slot_store::{Cart, Core};
 
 use crate::bitmaps;
@@ -125,9 +125,10 @@ fn bitmap_face(rgba: &[u8], w: u32, h: u32) -> CartFace {
     }
 }
 
-/// Centred on the panel. This used to sit at 174 for a 372-wide board; a 360-wide board
-/// centred there slid 6px left of the cart while the picker opened.
-pub const BOARD_X: f32 = (OUT_W as f32 - BOARD_W as f32) / 2.0;
+pub fn board_x(canvas: Canvas) -> f32 {
+    canvas.centred(BOARD_W as f32)
+}
+
 pub const BOARD_Y: f32 = 150.0;
 
 pub const TURN_PAD: u32 = 2;
@@ -165,14 +166,15 @@ const NAME_MIN_PX: f32 = 8.0;
 const SOCKET_INK: [u8; 3] = [0xee, 0xf5, 0xe6];
 const CHIP_INK: [u8; 3] = [0xf2, 0xf2, 0xf2];
 
-/// Where the lid ends up: the cart's own proportions at 40%, so it shrinks evenly rather than
-/// being squashed on the way, centred where the old 144x81 box was.
-const LID_REST: Placed = Placed {
-    x: 288.0,
-    y: 70.5 - LID_REST_H / 2.0,
-    w: 144.0,
-    h: LID_REST_H,
-};
+fn lid_rest(canvas: Canvas) -> Placed {
+    Placed {
+        x: canvas.centred(144.0),
+        y: 70.5 - LID_REST_H / 2.0,
+        w: 144.0,
+        h: LID_REST_H,
+    }
+}
+
 const LID_REST_H: f32 = 144.0 * CART_H as f32 / CART_W as f32;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -183,8 +185,8 @@ pub struct Placed {
     pub h: f32,
 }
 
-pub fn shelf_cart() -> Placed {
-    shelf_cart_at((OUT_W - CART_W) as f32 / 2.0, 1.0)
+pub fn shelf_cart(canvas: Canvas) -> Placed {
+    shelf_cart_at(canvas.centred(CART_W as f32), 1.0)
 }
 
 pub fn shelf_cart_at(x: f32, scale: f32) -> Placed {
@@ -197,13 +199,13 @@ pub fn shelf_cart_at(x: f32, scale: f32) -> Placed {
     }
 }
 
-pub fn board_at(progress: f32) -> Placed {
-    board_from(shelf_cart(), progress)
+pub fn board_at(canvas: Canvas, progress: f32) -> Placed {
+    board_from(canvas, shelf_cart(canvas), progress)
 }
 
-pub fn board_from(shelf: Placed, progress: f32) -> Placed {
+pub fn board_from(canvas: Canvas, shelf: Placed, progress: f32) -> Placed {
     let rest = Placed {
-        x: BOARD_X,
+        x: board_x(canvas),
         y: BOARD_Y,
         w: BOARD_W as f32,
         h: BOARD_H as f32,
@@ -217,17 +219,17 @@ pub fn board_in(cart: Placed) -> Placed {
     cart
 }
 
-pub fn lid_at(progress: f32) -> (Placed, f32) {
-    lid_from(shelf_cart(), progress)
+pub fn lid_at(canvas: Canvas, progress: f32) -> (Placed, f32) {
+    lid_from(canvas, shelf_cart(canvas), progress)
 }
 
-pub fn lid_from(shelf: Placed, progress: f32) -> (Placed, f32) {
+pub fn lid_from(canvas: Canvas, shelf: Placed, progress: f32) -> (Placed, f32) {
     let slid = Placed {
         y: shelf.y - SLIDE_UP * slide_of(progress),
         ..shelf
     };
     let lift = lift_of(progress);
-    (lerp(slid, LID_REST, lift), LID_TURN * lift)
+    (lerp(slid, lid_rest(canvas), lift), LID_TURN * lift)
 }
 
 const UNITS_W: f32 = 240.0;

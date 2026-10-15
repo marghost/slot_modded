@@ -310,15 +310,31 @@ fn wordmark(w: u32) -> Option<(Vec<u8>, (u32, u32))> {
     Some((render_svg(WORDMARK_SVG, w, h)?, (w, h)))
 }
 
-pub fn draw_sticker(face: Option<TexId>, out: &mut Vec<Draw>) {
+const STICKER_MARGIN: f32 = 16.0;
+
+pub fn sticker_rect(canvas: slot_gfx::Canvas) -> (f32, f32, f32, f32) {
+    let (w, h) = (STICKER_W as f32, STICKER_H as f32);
+    let room = canvas.w - 2.0 * STICKER_MARGIN;
+    let scale = (room / w).min(1.0);
+    let (w, h) = ((w * scale).round(), (h * scale).round());
+    (
+        canvas.centred(w).round(),
+        ((slot_gfx::OUT_H as f32 - h) / 2.0).round(),
+        w,
+        h,
+    )
+}
+
+pub fn draw_sticker(canvas: slot_gfx::Canvas, face: Option<TexId>, out: &mut Vec<Draw>) {
     let Some(tex) = face else {
         return;
     };
+    let (x, y, w, h) = sticker_rect(canvas);
     out.push(Draw::Tex {
-        x: (slot_gfx::OUT_W as f32 - STICKER_W as f32) / 2.0,
-        y: (slot_gfx::OUT_H as f32 - STICKER_H as f32) / 2.0,
-        w: STICKER_W as f32,
-        h: STICKER_H as f32,
+        x,
+        y,
+        w,
+        h,
         tex,
         alpha: 1.0,
     });

@@ -1,9 +1,9 @@
 use slot_store::{Cart, Core, Platform};
 use slot_ui::{
     board_at, board_face, board_in, chip_face, chip_shadow_face, lid_at, lift_of, on_board, padded,
-    rom_marking, rom_marking_face, shelf_cart, slide_of, socket_face, CartFace, Placed, BOARD_H,
-    BOARD_W, CART_H, CART_W, CHIP_H, CHIP_W, LID_TURN, ROM_H, ROM_W, ROM_X, ROM_Y, SHADOW_H,
-    SHADOW_W, SLIDE_SHARE, SLIDE_UP, SOCKET_H, SOCKET_W, TURN_PAD,
+    rom_marking, rom_marking_face, shelf_cart, slide_of, socket_face, Canvas, CartFace, Placed,
+    BOARD_H, BOARD_W, CART_H, CART_W, CHIP_H, CHIP_W, LID_TURN, ROM_H, ROM_W, ROM_X, ROM_Y,
+    SHADOW_H, SHADOW_W, SLIDE_SHARE, SLIDE_UP, SOCKET_H, SOCKET_W, TURN_PAD,
 };
 
 fn cart(stem: &str, code: &str) -> Cart {
@@ -117,7 +117,7 @@ fn alpha(face: &CartFace, x: u32, y: u32) -> u8 {
 #[test]
 fn the_open_cart_starts_as_the_shelf_cart_and_lands_where_the_mockup_has_it() {
     assert_eq!(
-        shelf_cart(),
+        shelf_cart(Canvas::FRAMED),
         Placed {
             x: 180.0,
             y: 134.0,
@@ -125,14 +125,17 @@ fn the_open_cart_starts_as_the_shelf_cart_and_lands_where_the_mockup_has_it() {
             h: 212.0
         }
     );
-    assert_eq!(board_at(0.0), board_in(shelf_cart()));
     assert_eq!(
-        board_at(0.0).x,
-        board_at(1.0).x,
+        board_at(Canvas::FRAMED, 0.0),
+        board_in(shelf_cart(Canvas::FRAMED))
+    );
+    assert_eq!(
+        board_at(Canvas::FRAMED, 0.0).x,
+        board_at(Canvas::FRAMED, 1.0).x,
         "the board slid sideways while it opened"
     );
     assert_eq!(
-        board_at(1.0),
+        board_at(Canvas::FRAMED, 1.0),
         Placed {
             x: 180.0,
             y: 150.0,
@@ -140,13 +143,20 @@ fn the_open_cart_starts_as_the_shelf_cart_and_lands_where_the_mockup_has_it() {
             h: CART_H as f32,
         }
     );
-    assert_eq!(board_at(1.7), board_at(1.0), "an overshoot kept growing");
+    assert_eq!(
+        board_at(Canvas::FRAMED, 1.7),
+        board_at(Canvas::FRAMED, 1.0),
+        "an overshoot kept growing"
+    );
 }
 
 #[test]
 fn the_lid_leaves_level_and_rests_turned() {
-    assert_eq!(lid_at(0.0), (shelf_cart(), 0.0));
-    let (rest, turn) = lid_at(1.0);
+    assert_eq!(
+        lid_at(Canvas::FRAMED, 0.0),
+        (shelf_cart(Canvas::FRAMED), 0.0)
+    );
+    let (rest, turn) = lid_at(Canvas::FRAMED, 1.0);
     assert_eq!((rest.x, rest.w), (288.0, 144.0));
     assert!(
         (rest.h - 144.0 * CART_H as f32 / CART_W as f32).abs() < 1e-3,
@@ -176,8 +186,8 @@ fn the_beats_split_one_progress() {
 fn the_back_half_stays_on_the_shelf_while_the_front_slides() {
     for p in [0.0, 0.1, 0.25, SLIDE_SHARE] {
         assert_eq!(
-            board_at(p),
-            board_in(shelf_cart()),
+            board_at(Canvas::FRAMED, p),
+            board_in(shelf_cart(Canvas::FRAMED)),
             "the back moved at progress {p}"
         );
     }
@@ -188,7 +198,7 @@ fn the_lid_keeps_its_proportions_all_the_way_open() {
     let lid_ratio = CART_W as f32 / CART_H as f32;
     for i in 0..=20 {
         let p = i as f32 / 20.0;
-        let (l, _) = lid_at(p);
+        let (l, _) = lid_at(Canvas::FRAMED, p);
         assert!(
             (l.w / l.h - lid_ratio).abs() < 0.01,
             "the lid is stretched at progress {p}: {l:?}"
@@ -198,15 +208,15 @@ fn the_lid_keeps_its_proportions_all_the_way_open() {
 
 #[test]
 fn the_board_fills_the_cart_so_opening_does_not_squash_it() {
-    let cart = shelf_cart();
+    let cart = shelf_cart(Canvas::FRAMED);
     let board = board_in(cart);
     assert_eq!(
         board, cart,
         "the back half is shorter than the lid: {board:?}"
     );
-    assert_eq!(board_at(0.0), cart);
+    assert_eq!(board_at(Canvas::FRAMED, 0.0), cart);
     assert!(
-        board_at(1.0).h <= cart.h,
+        board_at(Canvas::FRAMED, 1.0).h <= cart.h,
         "the resting board grew taller than the cart"
     );
 }
@@ -214,8 +224,8 @@ fn the_board_fills_the_cart_so_opening_does_not_squash_it() {
 #[test]
 fn the_front_slides_up_a_third_before_it_lifts() {
     assert_eq!(SLIDE_UP, CART_H as f32 / 3.0);
-    let shelf = shelf_cart();
-    let (slid, turn) = lid_at(SLIDE_SHARE);
+    let shelf = shelf_cart(Canvas::FRAMED);
+    let (slid, turn) = lid_at(Canvas::FRAMED, SLIDE_SHARE);
     assert_eq!(
         slid,
         Placed {
@@ -224,20 +234,20 @@ fn the_front_slides_up_a_third_before_it_lifts() {
         }
     );
     assert_eq!(turn, 0.0);
-    let (half, turn) = lid_at(SLIDE_SHARE / 2.0);
+    let (half, turn) = lid_at(Canvas::FRAMED, SLIDE_SHARE / 2.0);
     assert!(half.y < shelf.y && half.y > slid.y && turn == 0.0 && half.w == shelf.w);
 }
 
 #[test]
 fn the_lift_starts_where_the_slide_ends() {
-    let (slid, _) = lid_at(SLIDE_SHARE);
-    let (next, _) = lid_at(SLIDE_SHARE + 0.001);
+    let (slid, _) = lid_at(Canvas::FRAMED, SLIDE_SHARE);
+    let (next, _) = lid_at(Canvas::FRAMED, SLIDE_SHARE + 0.001);
     assert!((next.y - slid.y).abs() < 0.5 && (next.w - slid.w).abs() < 0.5);
 }
 
 #[test]
 fn board_units_land_on_the_panel_at_one_and_a_half_times() {
-    let board = board_at(1.0);
+    let board = board_at(Canvas::FRAMED, 1.0);
     assert_eq!(on_board(board, 0.0, 0.0), (180.0, 150.0));
     assert_eq!(on_board(board, 240.0, 135.0), (540.0, 362.0));
 }

@@ -1,7 +1,6 @@
-use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
+use slot_gfx::{Canvas, Draw, TexId, OUT_H};
 use slot_store::{Cart, Platform};
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::OnceLock;
 
 use crate::board::{board_in, Placed};
@@ -14,20 +13,6 @@ use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
 const SIDE_SCALE: f32 = 0.78;
 const SIDE_ALPHA: f32 = 1.0;
 
-static SLACK: AtomicU32 = AtomicU32::new(0);
-
-pub fn set_shelf_slack(px: f32) {
-    SLACK.store(px.max(0.0).to_bits(), Ordering::Relaxed);
-}
-
-fn raise() -> f32 {
-    f32::from_bits(SLACK.load(Ordering::Relaxed)) / 2.0
-}
-
-pub fn panel_middle_y() -> f32 {
-    OUT_H as f32 / 2.0 + raise()
-}
-
 pub fn rest_y(h: f32) -> f32 {
     let y = if h > CART_H as f32 {
         (OUT_H as f32 - MOUTH_H - h) / 2.0
@@ -36,7 +21,7 @@ pub fn rest_y(h: f32) -> f32 {
     };
     // A Game Boy pak is 337px in a 422px gap, which centres at 42.5. Snap to a
     // whole pixel so the 312×337 bitmap hits the RG SP panel 1:1.
-    (y - raise()).round()
+    y.round()
 }
 
 pub fn foot_y(h: f32) -> f32 {
@@ -450,14 +435,14 @@ impl Shelf {
         Some((self.index as i32 + off).rem_euclid(n) as usize)
     }
 
-    pub fn selected_at(&self) -> (f32, f32) {
+    pub fn selected_at(&self, canvas: Canvas) -> (f32, f32) {
         let w = self
             .carts
             .get(self.index)
             .map_or(CART_W, |c| cart_box(c.platform).0) as f32;
         let offset = self.scroll_target() - self.scroll;
         let scale = shrink(offset);
-        (OUT_W as f32 / 2.0 + offset * w - w * scale / 2.0, scale)
+        (canvas.w / 2.0 + offset * w - w * scale / 2.0, scale)
     }
 
     pub fn update(&mut self, dt: f32) {
@@ -466,13 +451,20 @@ impl Shelf {
         self.scroll += self.vel * dt;
     }
 
-    pub fn draw(&self, shake: f32, slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {
-        self.draw_row(None, shake, 0.0, 1.0, out);
-        draw_empty_slot(slot, out);
+    pub fn draw(
+        &self,
+        canvas: Canvas,
+        shake: f32,
+        slot: Option<(TexId, TexId)>,
+        out: &mut Vec<Draw>,
+    ) {
+        self.draw_row(canvas, None, shake, 0.0, 1.0, out);
+        draw_empty_slot(canvas, slot, out);
     }
 
     pub fn draw_row(
         &self,
+        canvas: Canvas,
         hidden: Option<&str>,
         shake: f32,
         recede: f32,
@@ -498,8 +490,8 @@ impl Shelf {
             let (cw, ch) = cart_box(cart.platform);
             let (w, h) = (cw as f32 * scale, ch as f32 * scale);
             let away = offset.signum() * (1.0 + offset.abs());
-            let x = OUT_W as f32 / 2.0 + offset * cw as f32 - w / 2.0 + away * PART * recede;
-            if x + w <= 0.0 || x >= OUT_W as f32 || alpha <= 0.0 {
+            let x = canvas.w / 2.0 + offset * cw as f32 - w / 2.0 + away * PART * recede;
+            if x + w <= 0.0 || x >= canvas.w || alpha <= 0.0 {
                 continue;
             }
             let x = x + shake;

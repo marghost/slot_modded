@@ -45,7 +45,15 @@ fn gpsp_is_told_its_serial_mode_before_load() {
     }
     let _g = common::core_lock();
     let mut core = slot_retro::LibretroCore::open(&path).expect("open gpsp");
-    slot::core::apply_core_options(&mut core, Core::Gpsp, "auto", false, false, None);
+    slot::core::apply_core_options(
+        &mut core,
+        Core::Gpsp,
+        Platform::Gba,
+        "auto",
+        false,
+        false,
+        None,
+    );
     assert_eq!(
         core.option("gpsp_serial"),
         Some("auto".to_string()),
@@ -63,7 +71,15 @@ fn gpsp_is_told_the_serial_mode_it_is_handed() {
     let _g = common::core_lock();
     let mut core = slot_retro::LibretroCore::open(&path).expect("open gpsp");
     for serial in ["rfu", "mul_poke", "mul_aw1", "mul_aw2"] {
-        slot::core::apply_core_options(&mut core, Core::Gpsp, serial, false, false, None);
+        slot::core::apply_core_options(
+            &mut core,
+            Core::Gpsp,
+            Platform::Gba,
+            serial,
+            false,
+            false,
+            None,
+        );
         assert_eq!(
             core.option("gpsp_serial"),
             Some(serial.to_string()),
@@ -81,7 +97,15 @@ fn gpsp_boots_through_the_bios_when_the_card_carries_one() {
     }
     let _g = common::core_lock();
     let mut core = slot_retro::LibretroCore::open(&path).expect("open gpsp");
-    slot::core::apply_core_options(&mut core, Core::Gpsp, "auto", true, false, None);
+    slot::core::apply_core_options(
+        &mut core,
+        Core::Gpsp,
+        Platform::Gba,
+        "auto",
+        true,
+        false,
+        None,
+    );
     assert_eq!(
         core.option("gpsp_boot_mode"),
         Some("bios".to_string()),
@@ -109,7 +133,15 @@ fn gpsp_is_left_on_its_own_boot_default_when_the_card_has_no_bios() {
     }
     let _g = common::core_lock();
     let mut core = slot_retro::LibretroCore::open(&path).expect("open gpsp");
-    slot::core::apply_core_options(&mut core, Core::Gpsp, "auto", false, false, None);
+    slot::core::apply_core_options(
+        &mut core,
+        Core::Gpsp,
+        Platform::Gba,
+        "auto",
+        false,
+        false,
+        None,
+    );
     assert_eq!(
         core.option("gpsp_boot_mode"),
         None,
@@ -127,7 +159,15 @@ fn mgba_is_given_its_own_frameskip_and_none_of_gpsps() {
     }
     let _g = common::core_lock();
     let mut core = slot_retro::LibretroCore::open(&path).expect("open mgba");
-    slot::core::apply_core_options(&mut core, Core::Mgba, "rfu", true, false, None);
+    slot::core::apply_core_options(
+        &mut core,
+        Core::Mgba,
+        Platform::Gba,
+        "rfu",
+        true,
+        false,
+        None,
+    );
     assert_eq!(
         core.option("gpsp_serial"),
         None,
@@ -164,7 +204,15 @@ fn both_cores_are_told_about_colour_correction_in_their_own_words() {
         let _g = common::core_lock();
         let mut core = slot_retro::LibretroCore::open(&path).expect("open the core");
         for (colour, want) in [(true, on), (false, off)] {
-            slot::core::apply_core_options(&mut core, which, "auto", false, colour, None);
+            slot::core::apply_core_options(
+                &mut core,
+                which,
+                Platform::Gba,
+                "auto",
+                false,
+                colour,
+                None,
+            );
             assert_eq!(
                 core.option(key).as_deref(),
                 Some(want),
@@ -194,7 +242,15 @@ fn gpsp_is_put_on_auto_frameskip() {
     }
     let _g = common::core_lock();
     let mut core = slot_retro::LibretroCore::open(&path).expect("open gpsp");
-    slot::core::apply_core_options(&mut core, Core::Gpsp, "auto", false, false, None);
+    slot::core::apply_core_options(
+        &mut core,
+        Core::Gpsp,
+        Platform::Gba,
+        "auto",
+        false,
+        false,
+        None,
+    );
     assert_eq!(
         core.option("gpsp_frameskip").as_deref(),
         Some("auto"),
@@ -601,7 +657,16 @@ fn open_core_reaches_a_gpsp_named_dylib_under_the_content_roots_system_directory
         .join(slot::core::dylib_name(Core::Gpsp));
     std::fs::copy(&mgba, &planted).expect("plant a dylib under gpSP's name");
 
-    let mut core = slot::core::open_core(d.path(), Core::Gpsp, "auto", false, None, None).core;
+    let mut core = slot::core::open_core(
+        d.path(),
+        Core::Gpsp,
+        Platform::Gba,
+        "auto",
+        false,
+        None,
+        None,
+    )
+    .core;
     core.load(&d.path().join("Games/GBA/Probe.gba"))
         .expect("the planted core refused the test rom");
     core.run_frame(ButtonMask::default());
@@ -704,7 +769,7 @@ fn keeps_time_while_off(which: Core) {
     let _g = common::core_lock();
     let boot = |state: Option<&[u8]>| {
         let mut core = slot_retro::LibretroCore::open(&path).expect("open the core");
-        slot::core::apply_core_options(&mut core, which, "auto", false, false, None);
+        slot::core::apply_core_options(&mut core, which, Platform::Gba, "auto", false, false, None);
         core.load(&rom).expect("load the probe");
         if let Some(s) = state {
             core.unserialize(s).expect("resume");

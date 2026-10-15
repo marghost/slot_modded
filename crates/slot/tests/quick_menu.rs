@@ -1067,7 +1067,7 @@ fn the_about_label_sits_on_the_same_tinted_ground_as_the_menu() {
     assert!(matches!(a.phase(), Phase::About), "{:?}", a.phase());
     let about = frame(&a);
     assert!(
-        matches!(menu[0], Draw::Tex { tex, .. } if tex == TexId::from_raw(801)),
+        matches!(menu[0], Draw::Part { tex, .. } if tex == TexId::from_raw(801)),
         "the menu is not on the blurred wallpaper"
     );
     assert!(
@@ -1189,7 +1189,7 @@ fn the_tint_darkens_your_own_wallpaper_on_the_shelf() {
         let draws = frame(&a);
         let wall = draws
             .iter()
-            .position(|d| matches!(d, Draw::Tex { tex, .. } if *tex == TexId::from_raw(802)))
+            .position(|d| matches!(d, Draw::Part { tex, .. } if *tex == TexId::from_raw(802)))
             .expect("the wallpaper was not drawn");
         let washes = black_washes(&draws[wall..]);
         assert_eq!(washes.len(), 1, "{tint:?}: {washes:?}");

@@ -2,24 +2,24 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use slot_gfx::{OUT_H, OUT_W};
+use slot_gfx::{Canvas, OUT_H, OUT_W};
 use slot_input::{Action, Btn, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power};
 use slot_retro::LinkChannel;
 use slot_store::{
     format_stamp, import_legacy_recents, read_slot_state, remove_legacy_recents, scan,
     write_slot_state, BezelPick, Cart, Collections, Core, GbPalette, Platform, Shader, SlotState,
-    StartupScreen, StateEntry, StateRing, Theme, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX,
+    StartupScreen, StateEntry, StateRing, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX,
     BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, RUN_AHEAD_MAX, VOLUME_MAX,
 };
 use slot_ui::{
-    board_from, board_zoom, draw_cheat_sheet, draw_empty_slot, draw_footer, draw_ground,
+    board_from, board_x, board_zoom, draw_cheat_sheet, draw_empty_slot, draw_footer, draw_ground,
     draw_modded_badge, draw_slot_name, draw_sticker, ease, footer_ink, grown, lid_at, lid_from,
     lift_of, on_board, repeat_gap, shelf_cart_at, ClockPicker, Draw, FfState, GbShell, Hud,
     HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces,
-    QuickRow, QuickValue, Refusal, Shelf, SlotChrome, TexId, Toast, BOARD_W, BOARD_X, CART_W,
-    CHEAT_PAGES, CHIP_H, CHIP_U, CHIP_V, CHIP_W, FOOTER_Y, HINT_EDGE, HINT_H, HOP_LIFT,
-    REPEAT_DELAY_MS, SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
+    QuickRow, QuickValue, Refusal, Shelf, SlotChrome, TexId, Toast, BOARD_W, CART_W, CHEAT_PAGES,
+    CHIP_H, CHIP_U, CHIP_V, CHIP_W, FOOTER_Y, HINT_EDGE, HINT_H, HOP_LIFT, REPEAT_DELAY_MS,
+    SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
 };
 
 use crate::audio::Sfx;
@@ -54,6 +54,7 @@ const BATTERY_CRITICAL: u8 = 5;
 const BATTERY_WARNINGS: [(u8, Toast); 2] = [(15, Toast::BatteryLow15), (10, Toast::BatteryLow10)];
 
 const BATTERY_POLL_MS: Millis = 10_000;
+const MENU_REVEAL_MS: Millis = 180;
 
 const CHARGE_POLL_MS: Millis = 1_000;
 const HEADPHONES_POLL_MS: Millis = 500;
@@ -354,6 +355,7 @@ pub struct App {
     random_wallpaper: Option<Option<String>>,
     battery_percent: slot_ui::Printed,
     bolt: Option<TexId>,
+    hud_bolt: Option<TexId>,
     slot_faces: Option<(TexId, TexId)>,
     shelf_platform: slot_ui::Printed,
     name_pending: bool,
@@ -534,6 +536,7 @@ impl App {
             random_wallpaper: None,
             battery_percent: slot_ui::Printed::default(),
             bolt: None,
+            hud_bolt: None,
             slot_faces: None,
             shelf_platform: slot_ui::Printed::default(),
             name_pending: false,
@@ -566,8 +569,7 @@ impl App {
 
     pub fn boot(root: &Path) -> Self {
         crate::root::ensure(root);
-        slot_ui::set_theme(Theme::read(root));
-        crate::boot_time::mark("root and theme");
+        crate::boot_time::mark("root");
         let carts = scan(root).unwrap_or_default();
         crate::boot_time::mark("scan");
         let mut app = App::new(carts);
@@ -960,9 +962,11 @@ impl App {
     }
 
     pub fn in_game_hidden(&self) -> &'static [QuickRow] {
-        match self.palette_live {
-            true => &[],
-            false => &[QuickRow::Palette],
+        match (self.palette_live, self.single_cart()) {
+            (true, false) => &[],
+            (false, false) => &[QuickRow::Palette],
+            (true, true) => &[QuickRow::ExitGame],
+            (false, true) => &[QuickRow::Palette, QuickRow::ExitGame],
         }
     }
 
@@ -1169,13 +1173,13 @@ impl App {
             WallpaperPick::Blur => self.blur.or(self.ground),
             WallpaperPick::File(_) | WallpaperPick::Random => self.wallpaper.or(self.ground),
         };
-        draw_ground(face, out);
+        draw_ground(self.canvas(), face, out);
         let alpha = tint_alpha(self.state.wallpaper_tint);
         if alpha > 0.0 && self.own_wallpaper_shown() {
             out.push(Draw::Rect {
                 x: 0.0,
                 y: 0.0,
-                w: OUT_W as f32,
+                w: self.canvas().w,
                 h: OUT_H as f32,
                 colour: [0.0, 0.0, 0.0, alpha],
             });
@@ -1268,6 +1272,10 @@ impl App {
 
     pub fn set_bolt_face(&mut self, bolt: TexId) {
         self.bolt = Some(bolt);
+    }
+
+    pub fn set_hud_bolt_face(&mut self, bolt: TexId) {
+        self.hud_bolt = Some(bolt);
     }
 
     pub fn set_slot_faces(&mut self, back: TexId, front: TexId) {
@@ -1778,7 +1786,7 @@ impl App {
         self.colour_correction_for(self.playing_platform())
     }
 
-    fn playing_platform(&self) -> Platform {
+    pub fn playing_platform(&self) -> Platform {
         self.seated_cart().map_or(self.platform, |c| c.platform)
     }
 
@@ -1792,6 +1800,13 @@ impl App {
 
     pub fn light(&self) -> bool {
         self.state.appearance.light()
+    }
+
+    pub fn status_ink(&self) -> [u8; 3] {
+        match self.phase {
+            Phase::Playing { .. } | Phase::Polaroids { .. } => footer_ink(false),
+            _ => footer_ink(self.light()),
+        }
     }
 
     pub fn powering_off(&self) -> bool {
@@ -2172,6 +2187,13 @@ impl App {
     fn tap_in_game_menu(&mut self, to: Option<QuickRow>) {
         self.menu_tap = Some((self.now(), self.in_game_menu));
         self.in_game_menu = to;
+    }
+
+    fn in_game_menu_shown(&self) -> Option<QuickRow> {
+        match self.menu_tap {
+            Some((at, None)) if self.now().saturating_sub(at) < MENU_REVEAL_MS => None,
+            _ => self.in_game_menu,
+        }
     }
 
     fn double_tap_states(&mut self) {
@@ -2685,11 +2707,8 @@ impl App {
         };
     }
 
-    pub fn frame_split(&self) -> Option<f32> {
-        match (&self.phase, self.power_menu) {
-            (Phase::QuickMenu { .. }, None) => Some(slot_ui::QUICK_SPLIT),
-            _ => None,
-        }
+    pub fn canvas(&self) -> Canvas {
+        Canvas::FRAMED
     }
 
     pub fn frame_lift(&self) -> f32 {
@@ -2977,7 +2996,7 @@ impl App {
             out.push(Draw::Rect {
                 x: 0.0,
                 y: 0.0,
-                w: OUT_W as f32,
+                w: self.canvas().w,
                 h: OUT_H as f32,
                 colour: [0.0, 0.0, 0.0, 1.0],
             });
@@ -2988,7 +3007,7 @@ impl App {
             };
             if let Some((tex, w, h)) = self.shutdown_faces.get(which.index()).copied() {
                 out.push(Draw::Tex {
-                    x: ((OUT_W - w) / 2) as f32,
+                    x: self.canvas().centred(w as f32).floor(),
                     y: ((OUT_H - h) / 2) as f32,
                     w: w as f32,
                     h: h as f32,
@@ -3011,7 +3030,7 @@ impl App {
                     .as_ref()
                     .filter(|_| *from_menu)
                     .map(|f| f.legend[0]);
-                picker.draw(line, hint, back, out);
+                picker.draw(self.canvas(), line, hint, back, out);
                 return;
             }
             Phase::QuickMenu { row } => QuickMenu {
@@ -3026,6 +3045,7 @@ impl App {
                 ground: self.menu_ground(),
                 palette: None,
                 over_game: false,
+                canvas: self.canvas(),
             }
             .draw(out),
             Phase::Shelf => {
@@ -3034,16 +3054,29 @@ impl App {
                     (Some(picker), Some(stem)) => {
                         let open = ease(picker.openness(self.now()));
                         let dim = 1.0 + (CORE_PICKER_DIM - 1.0) * open;
-                        self.shelf()
-                            .draw_row(Some(stem), 0.0, CORE_PICKER_RECEDE * open, dim, out);
-                        draw_empty_slot(self.slot_faces, out);
+                        self.shelf().draw_row(
+                            self.canvas(),
+                            Some(stem),
+                            0.0,
+                            CORE_PICKER_RECEDE * open,
+                            dim,
+                            out,
+                        );
+                        draw_empty_slot(self.canvas(), self.slot_faces, out);
                     }
                     _ => {
-                        self.shelf().draw(self.shelf_shake(), self.slot_faces, out);
-                        draw_slot_name(self.shelf_platform, self.slot_name_alpha(), out);
+                        self.shelf()
+                            .draw(self.canvas(), self.shelf_shake(), self.slot_faces, out);
+                        draw_slot_name(
+                            self.canvas(),
+                            self.shelf_platform,
+                            self.slot_name_alpha(),
+                            out,
+                        );
                     }
                 }
                 draw_footer(
+                    self.canvas(),
                     self.battery,
                     self.battery_percent,
                     self.bolt,
@@ -3053,13 +3086,13 @@ impl App {
                 );
             }
             Phase::About => {
-                slot_ui::draw_menu_ground(self.menu_ground(), out);
-                draw_sticker(self.sticker_face, out);
+                slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
+                draw_sticker(self.canvas(), self.sticker_face, out);
                 draw_modded_badge(self.modded_face, out);
                 return;
             }
             Phase::CheatSheet { .. } => {
-                slot_ui::draw_menu_ground(self.menu_ground(), out);
+                slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
                 draw_cheat_sheet(self.cheat_sheet_face, out);
                 return;
             }
@@ -3067,14 +3100,14 @@ impl App {
                 if !resumed {
                     self.draw_background(out);
                     self.shelf()
-                        .draw_row(Some(cart), 0.0, self.seat(), 1.0, out);
+                        .draw_row(self.canvas(), Some(cart), 0.0, self.seat(), 1.0, out);
                 }
                 self.chrome(cart, 0.0, out);
             }
             Phase::Ejecting { cart, .. } => {
                 self.draw_background(out);
                 self.shelf()
-                    .draw_row(Some(cart), 0.0, self.seat(), 1.0, out);
+                    .draw_row(self.canvas(), Some(cart), 0.0, self.seat(), 1.0, out);
                 self.chrome(cart, 0.0, out);
             }
             Phase::Playing { cart } if self.screen < 1.0 => {
@@ -3091,7 +3124,7 @@ impl App {
                     p.draw(
                         self.battery,
                         self.battery_percent,
-                        self.bolt,
+                        self.hud_bolt,
                         self.shelf_clock,
                         out,
                     );
@@ -3101,7 +3134,7 @@ impl App {
                 out.push(Draw::Rect {
                     x: 0.0,
                     y: 0.0,
-                    w: OUT_W as f32,
+                    w: self.canvas().w,
                     h: OUT_H as f32,
                     colour: [0.0, 0.0, 0.0, 1.0],
                 });
@@ -3113,7 +3146,7 @@ impl App {
         {
             draw_cheat_sheet(self.cheat_sheet_face, out);
         } else if let (Some(row), Phase::Playing { .. }, true) =
-            (self.in_game_menu, &self.phase, self.screen >= 1.0)
+            (self.in_game_menu_shown(), &self.phase, self.screen >= 1.0)
         {
             QuickMenu {
                 row,
@@ -3127,8 +3160,19 @@ impl App {
                 ground: None,
                 palette: self.quick_palette_faces,
                 over_game: true,
+                canvas: self.canvas(),
             }
             .draw(out);
+            if row.page() != QuickRow::PLAY_SCREEN {
+                slot_ui::draw_corners(
+                    self.canvas(),
+                    self.battery,
+                    self.battery_percent,
+                    self.hud_bolt,
+                    self.shelf_clock,
+                    out,
+                );
+            }
         }
         if let Some(picker) = self.core_picker_shown() {
             self.draw_core_picker(&picker, out);
@@ -3137,8 +3181,8 @@ impl App {
             self.draw_game_menu(menu, out);
         }
         match self.hud_area() {
-            Some(area) => self.hud.draw_within(self.now(), area, out),
-            None => self.hud.draw(self.now(), out),
+            Some(area) => self.hud.draw_within(self.canvas(), self.now(), area, out),
+            None => self.hud.draw(self.canvas(), self.now(), out),
         }
     }
 
@@ -3172,7 +3216,7 @@ impl App {
             return;
         };
         let alpha = self.alert_alpha();
-        let (rest, scale) = self.shelf().selected_at();
+        let (rest, scale) = self.shelf().selected_at(self.canvas());
         SlotChrome {
             cart,
             face,
@@ -3191,6 +3235,7 @@ impl App {
             ),
             behind: self.shelf().behind(stem),
             slot: self.slot_faces,
+            canvas: self.canvas(),
         }
         .draw(out);
     }
@@ -3292,11 +3337,12 @@ impl App {
         out.push(Draw::Rect {
             x: 0.0,
             y: 0.0,
-            w: OUT_W as f32,
+            w: self.canvas().w,
             h: OUT_H as f32,
             colour: slot_ui::opening(),
         });
         draw_menu_rows(
+            self.canvas(),
             &self.power_menu_faces,
             Some(index),
             centred_top(self.power_menu_faces.len()),
@@ -3312,9 +3358,9 @@ impl App {
         let now = self.now();
         let progress = picker.openness(now);
         let lift = lift_of(progress);
-        let (rest, scale) = self.shelf().selected_at();
+        let (rest, scale) = self.shelf().selected_at(self.canvas());
         let shelf = shelf_cart_at(rest, scale);
-        let board = board_from(shelf, progress);
+        let board = board_from(self.canvas(), shelf, progress);
         let zoom = board_zoom(board);
         let ready = self.core_faces_ready();
 
@@ -3393,8 +3439,8 @@ impl App {
         }
 
         if let Some(tex) = self.core_chip_shadow_face {
-            let (lid, _) = lid_from(shelf, progress);
-            let k = lid.w / lid_at(1.0).0.w;
+            let (lid, _) = lid_from(self.canvas(), shelf, progress);
+            let k = lid.w / lid_at(self.canvas(), 1.0).0.w;
             let (w, h) = (LID_SHADOW_W * k, LID_SHADOW_H * k);
             out.push(Draw::Tex {
                 x: lid.x + (lid.w - w) / 2.0,
@@ -3408,7 +3454,7 @@ impl App {
 
         if ready {
             if let Some(tex) = self.core_lid_face {
-                let (lid, turn) = lid_from(shelf, progress);
+                let (lid, turn) = lid_from(self.canvas(), shelf, progress);
                 let at = grown(lid, TURN_PAD as f32 * lid.w / CART_W as f32);
                 out.push(Draw::Turned {
                     x: at.x,
@@ -3424,7 +3470,7 @@ impl App {
             .selected_stem()
             .and_then(|stem| self.shelf().find(stem))
         {
-            let (lid, turn) = lid_from(shelf, progress);
+            let (lid, turn) = lid_from(self.canvas(), shelf, progress);
             out.push(Draw::Turned {
                 x: lid.x,
                 y: lid.y,
@@ -3437,11 +3483,11 @@ impl App {
         }
 
         if let [cancel, swap, choose] = self.core_legend_faces.as_slice() {
-            let right = BOARD_X + BOARD_W as f32;
+            let right = board_x(self.canvas()) + BOARD_W as f32;
             let seen = |w: u32| w.saturating_sub(HINT_EDGE) as f32;
             for (tex, w, x) in [
-                (cancel.0, cancel.1, BOARD_X),
-                (swap.0, swap.1, (OUT_W as f32 - seen(swap.1)) / 2.0),
+                (cancel.0, cancel.1, board_x(self.canvas())),
+                (swap.0, swap.1, self.canvas().centred(seen(swap.1))),
                 (choose.0, choose.1, right - seen(choose.1)),
             ] {
                 out.push(Draw::Tex {
@@ -4662,6 +4708,7 @@ fn centred_top(rows: usize) -> f32 {
 }
 
 fn draw_menu_rows(
+    canvas: Canvas,
     faces: &[(TexId, u32, u32)],
     index: Option<usize>,
     top: f32,
@@ -4669,7 +4716,7 @@ fn draw_menu_rows(
 ) {
     for (row, (tex, w, h)) in faces.iter().copied().enumerate() {
         let y = top + POWER_MENU_PITCH * row as f32;
-        let x = ((OUT_W as f32 - w as f32) / 2.0).round();
+        let x = canvas.centred(w as f32).round();
         if index == Some(row) {
             out.push(Draw::Rect {
                 x,

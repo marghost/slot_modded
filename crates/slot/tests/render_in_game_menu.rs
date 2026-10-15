@@ -77,7 +77,9 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
     tap(&mut f, &mut input, Btn::A);
     run_for(&mut f, &mut input, 4.0);
     tap(&mut f, &mut input, Btn::Menu);
-    run_for(&mut f, &mut input, 0.5);
+    run_for(&mut f, &mut input, 0.1);
+    let held = composed(&mut f, &mut c, "held");
+    run_for(&mut f, &mut input, 0.4);
     assert_eq!(f.app().in_game_menu(), Some(QuickRow::Resume));
     let top = composed(&mut f, &mut c, "top");
     for btn in [Btn::Down, Btn::Down, Btn::A, Btn::A] {
@@ -89,9 +91,14 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
 
     let panel = quick_row_top(QuickRow::Shader, f.app().in_game_hidden()) as usize - 16;
     let (mut probed, mut lit) = (0, 0);
-    for y in (8..panel).step_by(17) {
+    for y in (48..panel).step_by(17) {
         for x in (0..150).chain(570..OUT_W as usize).step_by(13) {
             let (bare, dark) = (at(&screen, x, y), at(&top, x, y));
+            assert_eq!(
+                at(&held, x, y),
+                bare,
+                "({x}, {y}): the menu drew inside the double tap window"
+            );
             for ch in 0..3 {
                 let want = f32::from(bare[ch]) * 0.35;
                 assert!(
@@ -109,6 +116,17 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
         lit * 4 > probed,
         "the game is too dark to prove anything: {lit} of {probed} probes lit"
     );
+
+    for (side, xs) in [("battery", 8..120), ("clock", 600..712)] {
+        let ink = (6..34)
+            .flat_map(|y| xs.clone().map(move |x| (x, y)))
+            .filter(|&(x, y)| bright(at(&top, x, y)) > 600)
+            .count();
+        assert!(
+            ink > 20,
+            "no {side} in the menu's corner: {ink} bright pixels"
+        );
+    }
 
     let row = quick_row_top(QuickRow::Shader, f.app().in_game_hidden()) as usize;
     let ink = (row..row + 40)

@@ -1,8 +1,8 @@
 use slot_store::{Cart, Platform};
 use slot_ui::{
-    cart_box, draw_empty_slot, edge, foot_y, housing, icon_box, opening, recess, seated_box, Draw,
-    Shelf, SlotChrome, TexId, ALERT_PX, CART_H, CART_W, GB_LABEL_H, GB_LABEL_Y, LABEL_H, LABEL_Y,
-    MOUTH_H, OUT_H, OUT_W,
+    cart_box, draw_empty_slot, edge, foot_y, housing, icon_box, opening, recess, seated_box,
+    Canvas, Draw, Shelf, SlotChrome, TexId, ALERT_PX, CART_H, CART_W, GB_LABEL_H, GB_LABEL_Y,
+    LABEL_H, LABEL_Y, MOUTH_H, OUT_H, OUT_W,
 };
 
 const CENTRED: f32 = (OUT_W - CART_W) as f32 / 2.0;
@@ -60,6 +60,7 @@ fn quad(d: &Draw) -> Quad {
     match *d {
         Draw::Rect { x, y, w, h, .. }
         | Draw::Tex { x, y, w, h, .. }
+        | Draw::Part { x, y, w, h, .. }
         | Draw::Turned { x, y, w, h, .. } => Quad { x, y, w, h },
         Draw::Game | Draw::Shot { .. } => Quad {
             x: 0.0,
@@ -110,7 +111,7 @@ fn as_lip(d: &Draw) -> Option<Quad> {
 fn alpha(d: &Draw) -> f32 {
     match *d {
         Draw::Rect { colour, .. } => colour[3],
-        Draw::Tex { alpha, .. } | Draw::Turned { alpha, .. } => alpha,
+        Draw::Tex { alpha, .. } | Draw::Part { alpha, .. } | Draw::Turned { alpha, .. } => alpha,
         Draw::Game | Draw::Shot { .. } => 1.0,
     }
 }
@@ -150,6 +151,7 @@ fn chrome_into(c: &Cart, seat: f32, out: &mut Vec<Draw>) {
         over: true,
         behind: [None, None],
         slot: None,
+        canvas: Canvas::FRAMED,
     }
     .draw(out);
 }
@@ -161,7 +163,7 @@ fn a_cart_the_row_had_not_finished_moving_slides_across_as_it_goes_in() {
     shelf.right();
     shelf.update(1.0 / 60.0);
     shelf.update(1.0 / 60.0);
-    let (rest, scale) = shelf.selected_at();
+    let (rest, scale) = shelf.selected_at(Canvas::FRAMED);
     assert!(
         (rest - CENTRED).abs() > 100.0 && scale < 0.95,
         "the row settled before the press: this proves nothing at {rest} and {scale}"
@@ -182,6 +184,7 @@ fn a_cart_the_row_had_not_finished_moving_slides_across_as_it_goes_in() {
             over: true,
             behind: [None, None],
             slot: None,
+            canvas: Canvas::FRAMED,
         }
         .draw(&mut out);
         out.iter()
@@ -241,6 +244,7 @@ fn draw_powering_on(t: f32, out: &mut Vec<Draw>) {
         over: true,
         behind: [None, None],
         slot: None,
+        canvas: Canvas::FRAMED,
     }
     .draw(out);
 }
@@ -340,7 +344,7 @@ fn the_cart_catches_on_the_lip_before_going_in() {
 fn an_unseated_cart_stands_where_the_shelf_left_it() {
     for (name, c) in both() {
         let mut shelf = Vec::new();
-        Shelf::new(vec![c.clone()]).draw_row(None, 0.0, 0.0, 1.0, &mut shelf);
+        Shelf::new(vec![c.clone()]).draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut shelf);
         let on_shelf = quad(&shelf[cart_at(&shelf)]);
 
         let out = chrome(&c, 0.0);
@@ -637,7 +641,7 @@ fn the_travel_eases_out_into_the_seat() {
 #[test]
 fn the_empty_slot_is_the_same_slot_the_chrome_draws() {
     let mut empty = Vec::new();
-    draw_empty_slot(None, &mut empty);
+    draw_empty_slot(Canvas::FRAMED, None, &mut empty);
 
     let c = cart();
     let mut seated = Vec::new();
@@ -654,6 +658,7 @@ fn the_empty_slot_is_the_same_slot_the_chrome_draws() {
         over: true,
         behind: [None, None],
         slot: None,
+        canvas: Canvas::FRAMED,
     }
     .draw(&mut seated);
 
@@ -891,6 +896,7 @@ fn a_clear_carts_board_goes_into_the_slot_and_comes_out_with_it() {
                 over: false,
                 behind: [Some(interior), Some(board)],
                 slot: None,
+                canvas: Canvas::FRAMED,
             }
             .draw(&mut out);
             let at = |t: TexId| {

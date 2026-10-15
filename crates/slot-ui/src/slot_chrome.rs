@@ -1,8 +1,5 @@
-use std::sync::OnceLock;
-
-use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
+use slot_gfx::{Canvas, Draw, TexId, OUT_H};
 use slot_store::Cart;
-use slot_store::Theme;
 
 use crate::cart::{cart_box, label_colour, label_text, seated_box, SEATED_W};
 use crate::footer::Printed;
@@ -17,13 +14,11 @@ const BAND_Y: f32 = OUT_H as f32 - MOUTH_H;
 
 pub const MOUTH_W: f32 = SEATED_W as f32 + 14.0;
 const SLIT_H: f32 = 9.0;
-const MOUTH_X: f32 = (OUT_W as f32 - MOUTH_W) / 2.0;
 const SLIT_Y: f32 = BAY_Y + 5.0;
 
 pub const LIP_H: f32 = 2.0;
 
 const BAY_W: f32 = MOUTH_W + 18.0;
-const BAY_X: f32 = (OUT_W as f32 - BAY_W) / 2.0;
 const BAY_Y: f32 = BAND_Y + LIP_H;
 const SCOOP_W: f32 = MOUTH_W * 0.88;
 const SCOOP_D: f32 = RECESS_H - (SCOOP_Y - BAY_Y);
@@ -31,18 +26,20 @@ const SCOOP_Y: f32 = SLIT_Y + SLIT_H;
 
 const RECESS_H: f32 = 42.0;
 const RIM_W: f32 = 2.0;
-const CX: f32 = OUT_W as f32 / 2.0;
 const SCOOP_FLAT: f32 = 4.0;
 
-static THEME: OnceLock<Theme> = OnceLock::new();
-
-pub fn set_theme(theme: Theme) {
-    let _ = THEME.set(theme);
+fn mouth_x(canvas: Canvas) -> f32 {
+    canvas.centred(MOUTH_W)
 }
 
-pub fn theme() -> &'static Theme {
-    THEME.get_or_init(Theme::default)
+fn bay_x(canvas: Canvas) -> f32 {
+    canvas.centred(BAY_W)
 }
+
+const HOUSING: [u8; 3] = [0x24, 0x24, 0x29];
+const RECESS: [u8; 3] = [0x1a, 0x1a, 0x1d];
+const OPENING: [u8; 3] = [0x05, 0x05, 0x08];
+const EDGE: [u8; 3] = [0x4d, 0x4d, 0x57];
 
 fn rgb(c: [u8; 3]) -> [f32; 4] {
     [
@@ -54,19 +51,19 @@ fn rgb(c: [u8; 3]) -> [f32; 4] {
 }
 
 pub fn housing() -> [f32; 4] {
-    rgb(theme().housing)
+    rgb(HOUSING)
 }
 
 pub fn opening() -> [f32; 4] {
-    rgb(theme().opening)
+    rgb(OPENING)
 }
 
 pub fn edge() -> [f32; 4] {
-    rgb(theme().edge)
+    rgb(EDGE)
 }
 
 pub fn recess() -> [f32; 4] {
-    rgb(theme().recess)
+    rgb(RECESS)
 }
 
 const LIP_Y: f32 = BAND_Y;
@@ -96,17 +93,19 @@ pub struct SlotChrome<'a> {
     /// The back plastic and the board a see-through cart shows under its front shell.
     pub behind: [Option<TexId>; 2],
     pub slot: Option<(TexId, TexId)>,
+    pub canvas: Canvas,
 }
 
 impl SlotChrome<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
+        let canvas = self.canvas;
         let seat = self.seat.clamp(0.0, 1.0);
         let dim = self.dim.clamp(0.0, 1.0);
         if dim > 0.0 {
             out.push(Draw::Rect {
                 x: 0.0,
                 y: 0.0,
-                w: OUT_W as f32,
+                w: canvas.w,
                 h: OUT_H as f32,
                 colour: [0.0, 0.0, 0.0, dim],
             });
@@ -121,7 +120,7 @@ impl SlotChrome<'_> {
             out.push(Draw::Game);
         }
 
-        draw_slot_back(self.slot, slot_alpha, out);
+        draw_slot_back(canvas, self.slot, slot_alpha, out);
 
         let (cw, ch) = cart_box(self.cart.platform);
         let (cw, ch) = (cw as f32, ch as f32);
@@ -136,7 +135,7 @@ impl SlotChrome<'_> {
         let k = (travel / catch).min(1.0);
         let (cw, ch) = (w0 + (sw - w0) * k, h0 + (sh - h0) * k);
         let centre = self.rest + w0 / 2.0;
-        let x = centre + (CX - centre) * k - cw / 2.0;
+        let x = centre + (canvas.w / 2.0 - centre) * k - cw / 2.0;
         let y = foot0 + (seated_foot - foot0) * travel - ch;
         let cart_alpha = if seat >= 1.0 && !held { chrome } else { 1.0 };
         for tex in self.behind.into_iter().flatten() {
@@ -189,7 +188,7 @@ impl SlotChrome<'_> {
         }
 
         if self.over && chrome < 1.0 && self.slot.is_none() {
-            front_bands(|x, y, w, h, _| {
+            front_bands(canvas, |x, y, w, h, _| {
                 out.push(Draw::Rect {
                     x,
                     y,
@@ -199,7 +198,12 @@ impl SlotChrome<'_> {
                 });
             });
         }
-        draw_slot_front(self.slot, if self.over { chrome } else { slot_alpha }, out);
+        draw_slot_front(
+            canvas,
+            self.slot,
+            if self.over { chrome } else { slot_alpha },
+            out,
+        );
 
         if self.game && opening && !self.over {
             out.push(Draw::Game);
@@ -217,65 +221,66 @@ fn band(x: f32, y: f32, w: f32, h: f32, c: [f32; 4], alpha: f32) -> Draw {
     }
 }
 
-fn draw_slot_back(slot: Option<(TexId, TexId)>, alpha: f32, out: &mut Vec<Draw>) {
+fn strip(canvas: Canvas, tex: TexId, alpha: f32) -> Draw {
+    Draw::Part {
+        x: 0.0,
+        y: BAND_Y,
+        w: canvas.w,
+        h: MOUTH_H,
+        tex,
+        alpha,
+        uv: canvas.window(crate::bitmaps::SLOT_W as f32),
+    }
+}
+
+fn draw_slot_back(canvas: Canvas, slot: Option<(TexId, TexId)>, alpha: f32, out: &mut Vec<Draw>) {
     if let Some((back, _)) = slot {
-        out.push(Draw::Tex {
-            x: 0.0,
-            y: BAND_Y,
-            w: OUT_W as f32,
-            h: MOUTH_H,
-            tex: back,
-            alpha,
-        });
+        out.push(strip(canvas, back, alpha));
         return;
     }
-    out.push(band(BAY_X, BAND_Y, BAY_W, LIP_H, housing(), alpha));
-    out.push(band(MOUTH_X, BAND_Y, MOUTH_W, LIP_H, edge(), alpha));
-    out.push(band(BAY_X, BAY_Y, BAY_W, RECESS_H, recess(), alpha));
-    out.push(band(MOUTH_X, SLIT_Y, MOUTH_W, SLIT_H, opening(), alpha));
-    for_each_scoop_span(|x, w, depth| {
+    let (bay_x, mouth_x) = (bay_x(canvas), mouth_x(canvas));
+    out.push(band(bay_x, BAND_Y, BAY_W, LIP_H, housing(), alpha));
+    out.push(band(mouth_x, BAND_Y, MOUTH_W, LIP_H, edge(), alpha));
+    out.push(band(bay_x, BAY_Y, BAY_W, RECESS_H, recess(), alpha));
+    out.push(band(mouth_x, SLIT_Y, MOUTH_W, SLIT_H, opening(), alpha));
+    for_each_scoop_span(canvas, |x, w, depth| {
         out.push(band(x, SCOOP_Y, w, depth, opening(), alpha));
     });
 }
 
-fn draw_slot_front(slot: Option<(TexId, TexId)>, alpha: f32, out: &mut Vec<Draw>) {
+fn draw_slot_front(canvas: Canvas, slot: Option<(TexId, TexId)>, alpha: f32, out: &mut Vec<Draw>) {
     if let Some((_, front)) = slot {
-        out.push(Draw::Tex {
-            x: 0.0,
-            y: BAND_Y,
-            w: OUT_W as f32,
-            h: MOUTH_H,
-            tex: front,
-            alpha,
-        });
+        out.push(strip(canvas, front, alpha));
         return;
     }
-    front_bands(|x, y, w, h, c| out.push(band(x, y, w, h, c, alpha)));
+    front_bands(canvas, |x, y, w, h, c| out.push(band(x, y, w, h, c, alpha)));
 }
 
-fn front_bands(mut band: impl FnMut(f32, f32, f32, f32, [f32; 4])) {
-    let w = OUT_W as f32;
-    let right = BAY_X + BAY_W;
+fn front_bands(canvas: Canvas, mut band: impl FnMut(f32, f32, f32, f32, [f32; 4])) {
+    let w = canvas.w;
+    let (bay_x, cx) = (bay_x(canvas), canvas.w / 2.0);
+    let right = bay_x + BAY_W;
     let floor = SCOOP_Y + SCOOP_D + RIM_W;
-    band(0.0, BAND_Y, BAY_X, MOUTH_H, housing());
+    band(0.0, BAND_Y, bay_x, MOUTH_H, housing());
     band(right, BAND_Y, w - right, MOUTH_H, housing());
 
-    let near = CX - SCOOP_W / 2.0;
-    band(BAY_X, SCOOP_Y, near - BAY_X, floor - SCOOP_Y, housing());
-    let far = CX + SCOOP_W / 2.0;
+    let near = cx - SCOOP_W / 2.0;
+    band(bay_x, SCOOP_Y, near - bay_x, floor - SCOOP_Y, housing());
+    let far = cx + SCOOP_W / 2.0;
     band(far, SCOOP_Y, right - far, floor - SCOOP_Y, housing());
 
-    for_each_scoop_span(|x, w, depth| {
+    for_each_scoop_span(canvas, |x, w, depth| {
         let top = SCOOP_Y + depth + RIM_W;
         band(x, top, w, floor - top, housing());
     });
     band(0.0, floor, w, OUT_H as f32 - floor, housing());
-    for_each_scoop_span(|x, w, depth| {
+    for_each_scoop_span(canvas, |x, w, depth| {
         band(x, SCOOP_Y + depth, w, RIM_W, edge());
     });
 }
 
-fn for_each_scoop_span(mut span: impl FnMut(f32, f32, f32)) {
+fn for_each_scoop_span(canvas: Canvas, mut span: impl FnMut(f32, f32, f32)) {
+    let cx = canvas.w / 2.0;
     let hw = SCOOP_W / 2.0;
     let depth = |x: f32| SCOOP_D * (1.0 - (x.abs() / hw).powf(SCOOP_FLAT)).max(0.0);
     let mut x = -hw;
@@ -285,7 +290,7 @@ fn for_each_scoop_span(mut span: impl FnMut(f32, f32, f32)) {
         while x < hw && depth(x + 0.5).round() == d {
             x += 1.0;
         }
-        span(CX + start, x - start, d);
+        span(cx + start, x - start, d);
     }
 }
 
@@ -295,13 +300,13 @@ pub fn slot_name_y() -> f32 {
     OUT_H as f32 - MOUTH_H - HINT_H as f32 - SLOT_NAME_GAP
 }
 
-pub fn draw_slot_name(name: Printed, alpha: f32, out: &mut Vec<Draw>) {
+pub fn draw_slot_name(canvas: Canvas, name: Printed, alpha: f32, out: &mut Vec<Draw>) {
     let (Some(tex), true) = (name.face, alpha > 0.0) else {
         return;
     };
     let (w, h) = (name.w as f32, HINT_H as f32);
     out.push(Draw::Tex {
-        x: CX - w / 2.0,
+        x: canvas.centred(w),
         y: slot_name_y(),
         w,
         h,
@@ -310,9 +315,9 @@ pub fn draw_slot_name(name: Printed, alpha: f32, out: &mut Vec<Draw>) {
     });
 }
 
-pub fn draw_empty_slot(slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {
-    draw_slot_back(slot, 1.0, out);
-    draw_slot_front(slot, 1.0, out);
+pub fn draw_empty_slot(canvas: Canvas, slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {
+    draw_slot_back(canvas, slot, 1.0, out);
+    draw_slot_front(canvas, slot, 1.0, out);
 }
 
 fn travel(seat: f32, catch: f32) -> f32 {

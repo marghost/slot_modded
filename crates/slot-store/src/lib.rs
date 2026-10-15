@@ -12,7 +12,6 @@ mod ring;
 mod scan;
 mod slot_state;
 mod stamp;
-mod theme;
 
 pub use atomic::atomic_write;
 pub use cart_shell::{Outline, ShellChoice, ShellFinish, CART_SHELL_FILE, LABELS_SHELL_FILE};
@@ -37,4 +36,3 @@ pub use slot_state::{
 pub use stamp::{
     civil_from_days, days_from_civil, days_in_month, format_stamp, parse_stamp, stamp_now,
 };
-pub use theme::{Theme, THEME_FILE};

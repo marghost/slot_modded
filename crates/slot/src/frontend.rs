@@ -326,13 +326,15 @@ impl Frontend {
                 look.applied == Some((light, legend_ready, port_ready)),
                 look.slot[i],
                 look.bolt[i],
+                look.bolt[0],
                 look.port[i],
                 look.legend[i].clone(),
                 legend_ready,
                 port_ready,
             )
         });
-        let Some((done, slot, bolt, port, legend, legend_ready, port_ready)) = ready else {
+        let Some((done, slot, bolt, hud_bolt, port, legend, legend_ready, port_ready)) = ready
+        else {
             return;
         };
         if done {
@@ -340,6 +342,7 @@ impl Frontend {
         }
         self.session.app_mut().set_slot_faces(slot[0], slot[1]);
         self.session.app_mut().set_bolt_face(bolt);
+        self.session.app_mut().set_hud_bolt_face(hud_bolt);
         if let Some(tex) = port {
             self.session.app_mut().set_link_port(tex);
         }
@@ -445,7 +448,6 @@ impl Frontend {
         if !slot_gfx::framed(panel) {
             return;
         }
-        slot_ui::set_shelf_slack((OUT_W * panel.1 / panel.0).saturating_sub(OUT_H) as f32);
         let Some(path) = self
             .session
             .app()
@@ -515,13 +517,12 @@ impl Frontend {
         });
         compositor.set_shake(self.session.app().screen_shake());
         compositor.set_screen_power(self.session.app().screen_power());
-        compositor.set_frame_lift(self.session.app().frame_lift());
-        compositor.set_frame_split(self.session.app().frame_split());
+        compositor.set_overlay_slide(self.session.app().frame_lift());
         sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
         compositor.set_game_bezel(self.session.app().shown_game_bezel());
         compositor.set_game_source_rect(self.session.app().source_rect());
         self.grab_link_shot(compositor);
-        compositor.begin_frame();
+        compositor.begin_frame(slot_gfx::Layout::Framed);
         if self.draw_rebuild(compositor) {
             return;
         }
@@ -674,7 +675,7 @@ impl Frontend {
             fraction: done as f32 / rebuild.total().max(1) as f32,
         };
         self.draws.clear();
-        screen.draw(&mut self.draws);
+        screen.draw(self.session.app().canvas(), &mut self.draws);
         compositor.draw_list(&self.draws);
         true
     }
@@ -887,7 +888,7 @@ fn sync_switcher(app: &mut App, compositor: &mut Compositor, texes: Faces, state
 }
 
 fn sync_clock(app: &mut App, compositor: &mut Compositor, clocks: &mut Clocks) {
-    let ink = footer_ink(app.light());
+    let ink = app.status_ink();
     if clocks.ink != ink {
         clocks.ink = ink;
         clocks.shown.clear();

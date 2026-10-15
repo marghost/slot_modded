@@ -1,4 +1,4 @@
-use crate::draw::{Draw, TexId, OUT_W};
+use crate::draw::{Canvas, Draw, TexId};
 use crate::text;
 
 pub const HINT_H: u32 = 24;
@@ -134,11 +134,11 @@ pub fn hint_quad(x: f32, y: f32, w: f32, face: Option<TexId>) -> Draw {
 
 pub const LEGEND_GAP: f32 = 36.0;
 
-pub fn centred_hints(hints: &[(TexId, u32)], gap: f32) -> Vec<(TexId, u32, f32)> {
+pub fn centred_hints(canvas: Canvas, hints: &[(TexId, u32)], gap: f32) -> Vec<(TexId, u32, f32)> {
     let seen = |w: u32| w.saturating_sub(HINT_EDGE) as f32;
     let total = hints.iter().map(|&(_, w)| seen(w)).sum::<f32>()
         + gap * hints.len().saturating_sub(1) as f32;
-    let mut x = ((OUT_W as f32 - total) / 2.0).round();
+    let mut x = canvas.centred(total).round();
     hints
         .iter()
         .map(|&(tex, w)| {

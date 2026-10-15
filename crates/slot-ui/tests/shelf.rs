@@ -1,8 +1,8 @@
 use slot_power::{Battery, Charge};
 use slot_store::{Cart, Platform};
 use slot_ui::{
-    draw_footer, footer_ink, label_colour, rest_y, Draw, GbShell, Printed, Shelf, TexId, CART_W,
-    GB_CART_H, GB_CART_W, OUT_W,
+    draw_footer, footer_ink, label_colour, rest_y, Canvas, Draw, GbShell, Printed, Shelf, TexId,
+    CART_W, GB_CART_H, GB_CART_W, OUT_W,
 };
 
 fn shelf_with(n: usize) -> Shelf {
@@ -23,11 +23,12 @@ fn shelf_with(n: usize) -> Shelf {
 
 fn placed(s: &Shelf) -> Vec<(f32, f32)> {
     let mut out = Vec::new();
-    s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+    s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
     out.iter()
         .map(|d| match *d {
             Draw::Rect { x, w, .. } => (x, w),
             Draw::Tex { x, w, .. } => (x, w),
+            Draw::Part { x, w, .. } => (x, w),
             Draw::Turned { x, w, .. } => (x, w),
             Draw::Game | Draw::Shot { .. } => (0.0, OUT_W as f32),
         })
@@ -36,7 +37,10 @@ fn placed(s: &Shelf) -> Vec<(f32, f32)> {
 
 fn xw(d: &Draw) -> (f32, f32) {
     match *d {
-        Draw::Rect { x, w, .. } | Draw::Tex { x, w, .. } | Draw::Turned { x, w, .. } => (x, w),
+        Draw::Rect { x, w, .. }
+        | Draw::Tex { x, w, .. }
+        | Draw::Part { x, w, .. }
+        | Draw::Turned { x, w, .. } => (x, w),
         Draw::Game | Draw::Shot { .. } => (0.0, OUT_W as f32),
     }
 }
@@ -124,7 +128,7 @@ fn no_cart_is_drawn_twice_in_a_settled_row_of_three_or_more() {
     for n in [3usize, 4, 7] {
         let s = shelf_with(n);
         let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
         let drawn = drawn_cart_indices(&out);
         let mut uniq = drawn.clone();
         uniq.sort();
@@ -152,7 +156,7 @@ fn two_carts_repeat_around_the_ring() {
     let mut s = shelf_with(2);
     settle(&mut s);
     let mut out = Vec::new();
-    s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+    s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
     assert_eq!(
         drawn_cart_indices(&out),
         vec![1, 0, 1],
@@ -184,7 +188,7 @@ fn two_carts_repeat_around_the_ring() {
 fn a_press_slides_the_row_rather_than_redrawing_it() {
     let occupied = |s: &Shelf| {
         let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
         let which = drawn_cart_indices(&out);
         let mut row: Vec<(i64, usize)> = out
             .iter()
@@ -296,9 +300,9 @@ fn the_shelf_says_where_its_selected_cart_stands() {
             }
             let stem = s.carts[s.index].stem.clone();
             let mut whole = Vec::new();
-            s.draw_row(None, 0.0, 0.0, 1.0, &mut whole);
+            s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut whole);
             let mut without = Vec::new();
-            s.draw_row(Some(&stem), 0.0, 0.0, 1.0, &mut without);
+            s.draw_row(Canvas::FRAMED, Some(&stem), 0.0, 0.0, 1.0, &mut without);
             let dropped: Vec<(f32, f32)> = whole
                 .iter()
                 .map(xw)
@@ -312,7 +316,7 @@ fn the_shelf_says_where_its_selected_cart_stands() {
                     dropped.len()
                 );
             }
-            let (said_x, scale) = s.selected_at();
+            let (said_x, scale) = s.selected_at(Canvas::FRAMED);
             let said = (said_x, CART_W as f32 * scale);
             assert!(
                 dropped
@@ -470,6 +474,7 @@ fn the_gauge_is_white_in_dark_mode_and_black_in_light_mode() {
     let gauge = |light| {
         let mut out = Vec::new();
         draw_footer(
+            Canvas::FRAMED,
             Some(Battery {
                 percent: 68,
                 charge: Charge::Discharging,
@@ -495,6 +500,7 @@ fn the_gauge_is_white_in_dark_mode_and_black_in_light_mode() {
 fn the_gauge_starts_at_the_case_margin() {
     let mut out = Vec::new();
     draw_footer(
+        Canvas::FRAMED,
         Some(Battery {
             percent: 68,
             charge: Charge::Charging,
@@ -519,6 +525,7 @@ fn the_gauge_starts_at_the_case_margin() {
 fn the_band_prints_the_charge_at_one_margin_and_the_clock_at_the_other() {
     let mut out = Vec::new();
     draw_footer(
+        Canvas::FRAMED,
         Some(Battery {
             percent: 68,
             charge: Charge::Charging,
@@ -567,6 +574,7 @@ fn the_band_prints_the_charge_at_one_margin_and_the_clock_at_the_other() {
 fn the_footer_does_not_move_the_gauge_when_the_charge_state_changes() {
     let mut idle = Vec::new();
     draw_footer(
+        Canvas::FRAMED,
         Some(Battery {
             percent: 68,
             charge: Charge::Discharging,
@@ -579,6 +587,7 @@ fn the_footer_does_not_move_the_gauge_when_the_charge_state_changes() {
     );
     let mut charging = Vec::new();
     draw_footer(
+        Canvas::FRAMED,
         Some(Battery {
             percent: 68,
             charge: Charge::Charging,
@@ -601,6 +610,7 @@ fn the_footer_does_not_move_the_gauge_when_the_charge_state_changes() {
 fn the_clock_stays_at_the_right_margin() {
     let mut out = Vec::new();
     draw_footer(
+        Canvas::FRAMED,
         None,
         Printed::default(),
         None,
@@ -622,6 +632,7 @@ fn the_clock_stays_at_the_right_margin() {
 fn a_band_with_no_gauge_still_draws_its_clock() {
     let mut out = Vec::new();
     draw_footer(
+        Canvas::FRAMED,
         None,
         Printed::default(),
         None,
@@ -636,11 +647,11 @@ fn a_band_with_no_gauge_still_draws_its_clock() {
 fn a_refusal_moves_the_carts_and_leaves_the_device_where_it_is() {
     let s = shelf_with(3);
     let (mut still, mut shaken) = (Vec::new(), Vec::new());
-    s.draw(0.0, None, &mut still);
-    s.draw(9.0, None, &mut shaken);
+    s.draw(Canvas::FRAMED, 0.0, None, &mut still);
+    s.draw(Canvas::FRAMED, 9.0, None, &mut shaken);
     assert_eq!(still.len(), shaken.len(), "the shake changed the row");
     let mut row = Vec::new();
-    s.draw_row(None, 0.0, 0.0, 1.0, &mut row);
+    s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut row);
     let carts = row.len();
     assert!(
         carts > 0 && carts < still.len(),
@@ -673,7 +684,7 @@ fn carts_past_the_edges_of_the_row_are_not_drawn() {
 fn the_neighbours_peek_in_from_both_edges() {
     let s = shelf_with(5);
     let mut out = Vec::new();
-    s.draw(0.0, None, &mut out);
+    s.draw(Canvas::FRAMED, 0.0, None, &mut out);
     let mut spans = cart_spans(&out);
     spans.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
     assert_eq!(spans.len(), 3, "expected three carts, got {}", spans.len());
@@ -697,6 +708,7 @@ fn cart_spans(out: &[Draw]) -> Vec<(f32, f32)> {
         .filter_map(|d| match *d {
             Draw::Rect { x, w, h, .. }
             | Draw::Tex { x, w, h, .. }
+            | Draw::Part { x, w, h, .. }
             | Draw::Turned { x, w, h, .. } => (h > 60.0).then_some((x, x + w)),
             Draw::Game | Draw::Shot { .. } => None,
         })
@@ -709,7 +721,7 @@ fn the_row_parts_for_the_cart_going_in() {
     let s = shelf_with(5);
     let at = |recede: f32| {
         let mut out = Vec::new();
-        s.draw_row(Some("Game 0"), 0.0, recede, 1.0, &mut out);
+        s.draw_row(Canvas::FRAMED, Some("Game 0"), 0.0, recede, 1.0, &mut out);
         out
     };
     let start = at(0.0);
@@ -742,7 +754,7 @@ fn dim_darkens_a_side_carts_face_and_not_the_black_under_it() {
     s.set_faces(vec![TexId::from_raw(10), side, TexId::from_raw(12)]);
     let drawn = |dim: f32| {
         let mut out = Vec::new();
-        s.draw_row(Some("Game 0"), 0.0, 0.3, dim, &mut out);
+        s.draw_row(Canvas::FRAMED, Some("Game 0"), 0.0, 0.3, dim, &mut out);
         let (x, face) = out
             .iter()
             .find_map(|d| match *d {
@@ -779,7 +791,7 @@ fn a_cart_off_centre_stays_opaque() {
     let side = TexId::from_raw(11);
     s.set_faces(vec![TexId::from_raw(10), side, TexId::from_raw(12)]);
     let mut out = Vec::new();
-    s.draw_row(Some("Game 0"), 0.0, 0.0, 1.0, &mut out);
+    s.draw_row(Canvas::FRAMED, Some("Game 0"), 0.0, 0.0, 1.0, &mut out);
     let alpha = out
         .iter()
         .find_map(|d| match *d {
@@ -812,7 +824,7 @@ fn the_row_draws_a_game_boy_pak_at_its_own_height() {
     settle(&mut s);
     s.set_faces((0..3).map(|i| TexId::from_raw(20 + i)).collect());
     let mut out = Vec::new();
-    s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+    s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
     let (h, y) = out
         .iter()
         .find_map(|d| match *d {
@@ -839,7 +851,7 @@ fn a_game_boy_row_backs_its_carts_with_the_game_boy_shadow() {
     // Off-centre carts stay opaque, so only a receding row (the core picker) shows a shadow.
     let drawn = |s: &Shelf| {
         let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.3, 1.0, &mut out);
+        s.draw_row(Canvas::FRAMED, None, 0.0, 0.3, 1.0, &mut out);
         out
     };
     assert!(
@@ -892,7 +904,14 @@ fn a_colour_pak_and_a_grey_one_are_backed_by_their_own_shells() {
         s.set_gb_shadow(GbShell::Notched, notched);
         s.set_gb_shadow(GbShell::Rounded, rounded);
         let mut out = Vec::new();
-        s.draw_row(Some(&carts[selected].stem), 0.0, 0.3, 1.0, &mut out);
+        s.draw_row(
+            Canvas::FRAMED,
+            Some(&carts[selected].stem),
+            0.0,
+            0.3,
+            1.0,
+            &mut out,
+        );
         let backings: Vec<TexId> = out
             .iter()
             .filter_map(|d| match *d {
@@ -919,7 +938,7 @@ fn a_cart_pushed_onto_the_row_draws_rather_than_stopping_the_device() {
     settle(&mut s);
     let backed = |s: &Shelf| {
         let mut out = Vec::new();
-        s.draw_row(Some("Pak 0"), 0.0, 0.3, 1.0, &mut out);
+        s.draw_row(Canvas::FRAMED, Some("Pak 0"), 0.0, 0.3, 1.0, &mut out);
         out.iter()
             .filter(|d| matches!(**d, Draw::Tex { tex, .. } if tex == gb || tex == gba))
             .count()
@@ -1001,7 +1020,7 @@ fn a_fast_held_shelf_always_has_carts_on_screen() {
         s.tick(frame * 16);
         s.update(1.0 / 60.0);
         let mut out = Vec::new();
-        s.draw(0.0, None, &mut out);
+        s.draw(Canvas::FRAMED, 0.0, None, &mut out);
         let carts = out
             .iter()
             .filter(|d| {
@@ -1035,7 +1054,7 @@ fn a_clear_cart_is_drawn_over_its_board_and_a_solid_one_is_not() {
         s.set_faces(vec![face]);
         s.set_backing(board);
         let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
         let at = |t: TexId| {
             out.iter()
                 .position(|d| matches!(*d, Draw::Tex { tex, .. } if tex == t))
@@ -1085,7 +1104,7 @@ fn a_clear_cart_draws_its_interior_then_the_board_then_the_plastic() {
     s.set_backing(board);
     s.set_interior(0, interior);
     let mut out = Vec::new();
-    s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+    s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
     let at = |t: TexId| {
         out.iter()
             .position(|d| matches!(*d, Draw::Tex { tex, .. } if tex == t))
@@ -1133,7 +1152,7 @@ fn a_clear_pak_draws_its_interior_then_the_board_then_the_plastic() {
     s.set_gb_backing(GbShell::Notched, board);
     s.set_interior(0, interior);
     let mut out = Vec::new();
-    s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+    s.draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut out);
     let at = |t: TexId| {
         out.iter()
             .position(|d| matches!(*d, Draw::Tex { tex, .. } if tex == t))
@@ -1196,7 +1215,7 @@ fn a_pak_is_classed_when_it_is_drawn_not_when_the_shelf_is_built() {
     s.set_gb_shadow(GbShell::Notched, notched);
     s.set_gb_shadow(GbShell::Rounded, rounded);
     let mut out = Vec::new();
-    s.draw_row(Some("Front"), 0.0, 0.3, 1.0, &mut out);
+    s.draw_row(Canvas::FRAMED, Some("Front"), 0.0, 0.3, 1.0, &mut out);
     assert!(
         out.iter()
             .any(|d| matches!(*d, Draw::Tex { tex, .. } if tex == rounded)),

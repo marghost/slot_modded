@@ -839,7 +839,7 @@ fn drawn_hardware(app: &App) -> LinkKind {
     app.draw(&mut out);
     let drew = |n: usize| {
         out.iter().any(|d| {
-            matches!(*d, Draw::Tex { tex, .. } | Draw::Turned { tex, .. }
+            matches!(*d, Draw::Tex { tex, .. } | Draw::Part { tex, .. } | Draw::Turned { tex, .. }
                 if tex == TexId::from_raw(n))
         })
     };

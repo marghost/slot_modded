@@ -1,4 +1,4 @@
-use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
+use slot_gfx::{Canvas, Draw, TexId, OUT_H};
 use slot_store::{BLUE_LIGHT_MAX, BRIGHTNESS_MAX, VOLUME_MAX};
 
 use crate::icon::icon_box;
@@ -34,8 +34,8 @@ const ICON_GAP: f32 = 10.0;
 
 const BADGE_MARGIN: f32 = 12.0;
 
-pub fn badge_at(w: f32, h: f32) -> (f32, f32) {
-    (OUT_W as f32 - BADGE_MARGIN - w, (PLATE_H - h) / 2.0)
+pub fn badge_at(canvas: Canvas, w: f32, h: f32) -> (f32, f32) {
+    (canvas.w - BADGE_MARGIN - w, (PLATE_H - h) / 2.0)
 }
 
 const BAR_W: f32 = 320.0;
@@ -243,11 +243,11 @@ impl Hud {
         self.alpha(now) > 0.0
     }
 
-    pub fn draw(&self, now: Millis, out: &mut Vec<Draw>) {
-        self.draw_within(now, [0.0, 0.0, OUT_W as f32, OUT_H as f32], out);
+    pub fn draw(&self, canvas: Canvas, now: Millis, out: &mut Vec<Draw>) {
+        self.draw_within(canvas, now, [0.0, 0.0, canvas.w, canvas.h], out);
     }
 
-    pub fn draw_within(&self, now: Millis, area: [f32; 4], out: &mut Vec<Draw>) {
+    pub fn draw_within(&self, canvas: Canvas, now: Millis, area: [f32; 4], out: &mut Vec<Draw>) {
         let alpha = self.alpha(now);
         let toast = self.toast_alpha(now);
         if alpha > 0.0 || toast > 0.0 {
@@ -259,7 +259,7 @@ impl Hud {
                 colour: faded(PLATE, alpha.max(toast)),
             });
             if toast > 0.0 {
-                self.draw_toast(now, area, out);
+                self.draw_toast(canvas, now, area, out);
             } else {
                 self.draw_bar(alpha, area, out);
             }
@@ -270,10 +270,10 @@ impl Hud {
             .and_then(|i| self.link_faces.get(i).copied());
         let ff = ff_badge(self.ff).and_then(|i| self.icons.get(i.index()).copied());
         if let Some(tex) = link.or(ff) {
-            self.place_badge(tex, area, out);
+            self.place_badge(canvas, tex, area, out);
         }
         if let Some(since) = self.alarm {
-            self.draw_alarm(now.saturating_sub(since), out);
+            self.draw_alarm(canvas, now.saturating_sub(since), out);
         }
     }
 
@@ -306,11 +306,11 @@ impl Hud {
         });
     }
 
-    fn place_badge(&self, tex: TexId, area: [f32; 4], out: &mut Vec<Draw>) {
+    fn place_badge(&self, canvas: Canvas, tex: TexId, area: [f32; 4], out: &mut Vec<Draw>) {
         let (w, h) = icon_box(HUD_ICON_PX);
         let (w, h) = (w as f32, h as f32);
-        let (x, y) = badge_at(w, h);
-        let (x, y) = (x - (OUT_W as f32 - area[0] - area[2]), y + area[1]);
+        let (x, y) = badge_at(canvas, w, h);
+        let (x, y) = (x - (canvas.w - area[0] - area[2]), y + area[1]);
         out.push(Draw::Tex {
             x,
             y,
@@ -321,11 +321,11 @@ impl Hud {
         });
     }
 
-    fn draw_alarm(&self, age: Millis, out: &mut Vec<Draw>) {
+    fn draw_alarm(&self, canvas: Canvas, age: Millis, out: &mut Vec<Draw>) {
         out.push(Draw::Rect {
             x: 0.0,
             y: (OUT_H as f32 - ALARM_BAND_H) / 2.0,
-            w: OUT_W as f32,
+            w: canvas.w,
             h: ALARM_BAND_H,
             colour: pulse(age),
         });
@@ -333,7 +333,7 @@ impl Hud {
         let Some(tex) = self.toasts.get(alarm.index()).copied() else {
             return;
         };
-        let (x, y, w, h) = toast_rect(alarm);
+        let (x, y, w, h) = toast_rect(canvas, alarm);
         out.push(Draw::Tex {
             x,
             y,
@@ -344,7 +344,7 @@ impl Hud {
         });
     }
 
-    fn draw_toast(&self, now: Millis, area: [f32; 4], out: &mut Vec<Draw>) {
+    fn draw_toast(&self, canvas: Canvas, now: Millis, area: [f32; 4], out: &mut Vec<Draw>) {
         let alpha = self.toast_alpha(now);
         if alpha <= 0.0 {
             return;
@@ -359,7 +359,7 @@ impl Hud {
         let Some((said, _)) = self.said else {
             return;
         };
-        let (x, y, w, h) = toast_rect(said);
+        let (x, y, w, h) = toast_rect(canvas, said);
         let (x, y) = match said.alarm() {
             true => (x, y),
             false => (area[0] + (area[2] - w) / 2.0, area[1] + y),

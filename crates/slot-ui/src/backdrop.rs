@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
+use slot_gfx::{Canvas, Draw, TexId, OUT_H, OUT_W};
 
 use crate::art;
 
@@ -32,37 +32,35 @@ pub fn blur_background() -> Option<&'static [u8]> {
         .as_deref()
 }
 
-pub fn draw_ground(face: Option<TexId>, out: &mut Vec<Draw>) {
+pub fn draw_ground(canvas: Canvas, face: Option<TexId>, out: &mut Vec<Draw>) {
     let Some(tex) = face else {
         return;
     };
-    out.push(Draw::Tex {
-        x: 0.0,
-        y: 0.0,
-        w: OUT_W as f32,
-        h: OUT_H as f32,
-        tex,
-        alpha: 1.0,
-    });
+    out.push(ground(canvas, tex));
 }
 
-pub fn draw_backdrop(face: Option<TexId>, out: &mut Vec<Draw>) {
+pub fn draw_backdrop(canvas: Canvas, face: Option<TexId>, out: &mut Vec<Draw>) {
     let Some(tex) = face else {
         return;
     };
-    out.push(Draw::Tex {
-        x: 0.0,
-        y: 0.0,
-        w: OUT_W as f32,
-        h: OUT_H as f32,
-        tex,
-        alpha: 1.0,
-    });
+    out.push(ground(canvas, tex));
     out.push(Draw::Rect {
         x: 0.0,
         y: 0.0,
-        w: OUT_W as f32,
+        w: canvas.w,
         h: OUT_H as f32,
         colour: [0.0, 0.0, 0.0, SCRIM],
     });
+}
+
+fn ground(canvas: Canvas, tex: TexId) -> Draw {
+    Draw::Part {
+        x: 0.0,
+        y: 0.0,
+        w: canvas.w,
+        h: OUT_H as f32,
+        tex,
+        alpha: 1.0,
+        uv: canvas.window(OUT_W as f32),
+    }
 }

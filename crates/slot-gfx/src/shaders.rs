@@ -33,9 +33,10 @@ attribute vec2 a_pos;
 uniform vec4 u_rect;
 uniform vec2 u_target;
 uniform vec2 u_turn;
+uniform vec4 u_src;
 varying vec2 v_uv;
 void main() {
-    v_uv = a_pos;
+    v_uv = u_src.xy + a_pos * u_src.zw;
     vec2 mid = u_rect.zw * 0.5;
     vec2 local = a_pos * u_rect.zw - mid;
     vec2 turned = vec2(u_turn.x * local.x - u_turn.y * local.y,

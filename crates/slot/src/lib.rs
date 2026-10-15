@@ -30,6 +30,7 @@ pub mod link_radio;
 pub mod link_screen;
 pub mod link_start;
 pub mod link_state;
+pub mod panel_turn;
 pub mod persist;
 pub mod pitch;
 pub mod prefetch;
