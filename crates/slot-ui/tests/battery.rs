@@ -1,6 +1,7 @@
 use slot_power::{Battery, Charge};
 use slot_ui::{
-    battery_badge_face, draw_gauge, level_colour, Draw, Printed, TexId, GAUGE_W, HUD_INK, WALL,
+    battery_badge_face, draw_gauge, level_colour, Draw, Printed, TexId, GAUGE_H, GAUGE_W, HUD_INK,
+    WALL,
 };
 
 fn percent_face() -> Printed {
@@ -145,6 +146,13 @@ fn the_fill_tracks_the_percent_and_never_leaves_the_capsule() {
             "the fill must grow strictly with the percent, got {widths:?}"
         );
     }
+}
+
+#[test]
+fn the_capsule_is_a_fifth_larger_than_it_was() {
+    assert!((GAUGE_W - 22.0 * 1.2).abs() < 0.01);
+    assert!((GAUGE_H - 11.0 * 1.2).abs() < 0.01);
+    assert!((WALL - 1.5 * 1.2).abs() < 0.01);
 }
 
 #[test]

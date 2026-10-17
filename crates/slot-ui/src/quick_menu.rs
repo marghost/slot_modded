@@ -1,7 +1,10 @@
+use crate::bitmaps::{button_legend, ButtonLegend};
 use crate::draw::{Canvas, Draw, TexId, OUT_H, OUT_W};
-use crate::plate::{arrows_hint_face, centred_hints, hint_face, UndoFace, HINT_H, LEGEND_GAP};
+use crate::plate::{
+    blit, centred_hints, word_face, word_ink, UndoFace, CAP_GAP, HINT_EDGE, HINT_H, LEGEND_GAP,
+};
 use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD, MENU_PX};
-use crate::slot_chrome::opening;
+use crate::slot_chrome::{opening, MOUTH_H};
 use crate::text;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -594,13 +597,91 @@ pub fn quick_caret_face(right: bool) -> UndoFace {
     UndoFace { rgba, w, h }
 }
 
-pub fn quick_legend_faces() -> [UndoFace; 4] {
+pub fn quick_legend_faces(ink: [u8; 3]) -> [UndoFace; 5] {
+    let hint = Some(ink);
     [
-        hint_face("B", "Back"),
-        arrows_hint_face("Change"),
-        hint_face("A", "Open"),
-        hint_face("B", "Resume"),
+        with_hint(button_face(ButtonLegend::B), "Back", hint, true),
+        with_hint(
+            button_pair(ButtonLegend::Left, ButtonLegend::Right),
+            "Change",
+            hint,
+            false,
+        ),
+        with_hint(button_face(ButtonLegend::A), "Open", hint, false),
+        with_hint(button_face(ButtonLegend::B), "Resume", hint, true),
+        with_hint(button_face(ButtonLegend::X), "Restart", hint, false),
     ]
+}
+
+/// Cancel, Swap, Choose. Swap keeps the button before the word, the way the old arrows did.
+pub fn core_button_legends() -> Vec<UndoFace> {
+    vec![
+        with_hint(button_face(ButtonLegend::B), "Cancel", None, true),
+        with_hint(
+            button_pair(ButtonLegend::Left, ButtonLegend::Right),
+            "Swap",
+            None,
+            true,
+        ),
+        with_hint(button_face(ButtonLegend::A), "Choose", None, false),
+    ]
+}
+
+/// Cancel, Mode, Swap, Link, OK, Back, End Link.
+pub fn link_button_legends(ink: [u8; 3]) -> Vec<UndoFace> {
+    let hint = Some(ink);
+    vec![
+        with_hint(button_face(ButtonLegend::B), "Cancel", hint, true),
+        with_hint(button_face(ButtonLegend::Select), "Mode", hint, true),
+        with_hint(
+            button_pair(ButtonLegend::Left, ButtonLegend::Right),
+            "Swap",
+            hint,
+            false,
+        ),
+        with_hint(button_face(ButtonLegend::A), "Link", hint, false),
+        with_hint(button_face(ButtonLegend::A), "OK", hint, false),
+        with_hint(button_face(ButtonLegend::B), "Back", hint, true),
+        with_hint(button_face(ButtonLegend::A), "End Link", hint, false),
+    ]
+}
+
+/// `hint_on_right` puts the word after the button, for a legend parked on the left of the footer.
+fn with_hint(button: UndoFace, label: &str, ink: Option<[u8; 3]>, hint_on_right: bool) -> UndoFace {
+    let word = match ink {
+        Some(ink) => word_ink(label, ink),
+        None => word_face(label),
+    };
+    let w = button.w + CAP_GAP + word.w + HINT_EDGE;
+    let h = button.h;
+    let mut rgba = vec![0u8; (w * h * 4) as usize];
+    let text_y = h.saturating_sub(word.h) / 2;
+    let (button_x, text_x) = match hint_on_right {
+        true => (0, button.w + CAP_GAP),
+        false => (word.w + CAP_GAP, 0),
+    };
+    blit(&mut rgba, w, &button.rgba, button.w, button.h, button_x, 0);
+    blit(&mut rgba, w, &word.rgba, word.w, word.h, text_x, text_y);
+    UndoFace { rgba, w, h }
+}
+
+fn button_face(which: ButtonLegend) -> UndoFace {
+    let (rgba, w, h) = button_legend(which);
+    UndoFace {
+        rgba: rgba.to_vec(),
+        w,
+        h,
+    }
+}
+
+fn button_pair(left: ButtonLegend, right: ButtonLegend) -> UndoFace {
+    let (a, aw, ah) = button_legend(left);
+    let (b, bw, bh) = button_legend(right);
+    let (w, h) = (aw + bw, ah.max(bh));
+    let mut rgba = vec![0u8; (w * h * 4) as usize];
+    blit(&mut rgba, w, a, aw, ah, 0, 0);
+    blit(&mut rgba, w, b, bw, bh, aw, 0);
+    UndoFace { rgba, w, h }
 }
 
 pub struct QuickMenuFaces {
@@ -608,7 +689,8 @@ pub struct QuickMenuFaces {
     pub pointer: (TexId, u32, u32),
     pub values: Vec<[(TexId, u32, u32); 2]>,
     pub carets: [(TexId, u32, u32); 2],
-    pub legend: [(TexId, u32); 4],
+    pub legend: [(TexId, u32); 5],
+    pub legend_light: [(TexId, u32); 5],
 }
 
 pub struct QuickMenu<'a> {
@@ -625,6 +707,10 @@ pub struct QuickMenu<'a> {
     pub gbc_bezel: Option<[(TexId, u32, u32); 2]>,
     pub bezel: Option<[(TexId, u32, u32); 2]>,
     pub over_game: bool,
+    /// The carousel footer carries the legends, so the centred pair is not drawn.
+    pub footer_legends: bool,
+    /// Where the sliding footer starts. The scrim stops there so it does not darken the strip.
+    pub footer_top: f32,
     pub canvas: Canvas,
 }
 
@@ -637,11 +723,12 @@ impl QuickMenu<'_> {
                     true => quick_row_top(self.row.page()[0], self.hidden) - PANEL_GAP,
                     false => 0.0,
                 };
+                let bottom = self.footer_top.max(y);
                 out.push(Draw::Rect {
                     x: 0.0,
                     y,
                     w: self.canvas.w,
-                    h: OUT_H as f32 - y,
+                    h: bottom - y,
                     colour: [0.0, 0.0, 0.0, GROUND_SCRIM],
                 });
             }
@@ -699,7 +786,10 @@ impl QuickMenu<'_> {
             push(out, tex, vx, y, w, h);
             push(out, left_tex, vx + pad - CARET_GAP - lw as f32, y, lw, lh);
         }
-        let [back, change, open, resume] = faces.legend;
+        if self.over_game || self.footer_legends {
+            return;
+        }
+        let [back, change, open, resume, _] = faces.legend;
         let back = match self.row.page() == QuickRow::PLAY {
             true => resume,
             false => back,
@@ -745,7 +835,7 @@ pub fn draw_menu_ground(canvas: Canvas, ground: Option<TexId>, out: &mut Vec<Dra
 pub fn quick_row_top(row: QuickRow, hidden: &[QuickRow]) -> f32 {
     let rows = QUICK_PITCH * row.shown(hidden).len() as f32;
     let top = match row.page() == QuickRow::PLAY_SCREEN {
-        true => LEGEND_Y - PANEL_GAP - rows,
+        true => OUT_H as f32 - MOUTH_H - PANEL_GAP - rows,
         false => (LEGEND_Y - rows) / 2.0,
     };
     top + QUICK_PITCH * row.position(hidden) as f32

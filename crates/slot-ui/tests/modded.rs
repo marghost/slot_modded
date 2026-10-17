@@ -1,6 +1,6 @@
 use slot_ui::{
     draw_modded_badge, modded_badge_face, version_face, Canvas, Draw, TexId, BADGE_H, BADGE_W,
-    OUT_H, STICKER_H,
+    MOUTH_H, OUT_H, STICKER_H,
 };
 
 fn pixel(face: &slot_ui::UndoFace, x: u32, y: u32) -> [u8; 4] {
@@ -55,7 +55,7 @@ fn the_badge_sits_centred_between_the_sticker_and_the_bottom() {
 }
 
 #[test]
-fn the_version_sits_in_the_bottom_right_corner() {
+fn the_version_sits_right_above_the_restart_legend() {
     let face = version_face();
     assert!(face.w > 0 && face.rgba.chunks(4).any(|p| p[3] > 200));
     let canvas = Canvas { w: 640.0, h: 480.0 };
@@ -74,8 +74,8 @@ fn the_version_sits_in_the_bottom_right_corner() {
         "not at the right edge"
     );
     assert!(
-        y + h <= OUT_H as f32 && y + h >= OUT_H as f32 - 24.0,
-        "not at the bottom"
+        y + h <= OUT_H as f32 - MOUTH_H && y + h >= OUT_H as f32 - MOUTH_H - 24.0,
+        "not just above the footer"
     );
 }
 

@@ -13,13 +13,6 @@ impl PowerChoice {
     pub fn index(self) -> usize {
         self as usize
     }
-
-    pub fn text(self) -> &'static str {
-        match self {
-            PowerChoice::Restart => "Restart",
-            PowerChoice::PowerOff => "Power Off",
-        }
-    }
 }
 
 pub(crate) const MENU_PX: f32 = 30.0;

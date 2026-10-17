@@ -32,7 +32,7 @@ impl DeviceInput {
 
     pub fn open_in(dev: &Path, sys: &Path, root: &Path, trace: bool) -> Self {
         let trace = trace.then(|| Trace::start(root, dev, sys)).flatten();
-        let target = std::env::var("BASEOS_TARGET").ok();
+        let target = crate::baseos::var("BASEOS_TARGET");
         DeviceInput::open_traced(dev, sys, menu_dpad_display(target.as_deref()), trace)
     }
 

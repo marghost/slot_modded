@@ -1,5 +1,6 @@
 use slot_gfx::{Canvas, Draw, TexId, OUT_H};
 
+use crate::slot_chrome::MOUTH_H;
 use crate::sticker::STICKER_H;
 use crate::text;
 use crate::UndoFace;
@@ -80,7 +81,7 @@ pub fn draw_modded_badge(
     if let Some((tex, w, h)) = version {
         out.push(Draw::Tex {
             x: (canvas.w - VERSION_MARGIN - w as f32).round(),
-            y: (OUT_H as f32 - VERSION_MARGIN - h as f32).round(),
+            y: (OUT_H as f32 - MOUTH_H - VERSION_MARGIN - h as f32).round(),
             w: w as f32,
             h: h as f32,
             tex,

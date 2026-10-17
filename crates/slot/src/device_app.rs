@@ -100,16 +100,16 @@ pub fn run() {
     let env = |key| std::env::var(key).ok();
     let turn = panel_turn(
         panel,
-        env("BASEOS_PANEL_ROTATION_CCW").as_deref(),
+        slot::baseos::var("BASEOS_PANEL_ROTATION_CCW").as_deref(),
         env("SLOT_ROTATE").as_deref(),
     );
     let turned = turn != PanelTurn::None;
     let window = if turned { (panel.1, panel.0) } else { panel };
     eprintln!(
         "slot: baseos target {}, model {}, rotation ccw {}",
-        env("BASEOS_TARGET").unwrap_or_default(),
-        env("BASEOS_MODEL").unwrap_or_default(),
-        env("BASEOS_PANEL_ROTATION_CCW").unwrap_or_default()
+        slot::baseos::var("BASEOS_TARGET").unwrap_or_default(),
+        slot::baseos::var("BASEOS_MODEL").unwrap_or_default(),
+        slot::baseos::var("BASEOS_PANEL_ROTATION_CCW").unwrap_or_default()
     );
     eprintln!(
         "slot: panel {}x{}, canvas {}x{}, turn {turn:?}",
