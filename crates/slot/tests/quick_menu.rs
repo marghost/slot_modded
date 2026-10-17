@@ -46,13 +46,15 @@ fn press(a: &mut App, btn: Btn) {
 
 fn open_at(a: &mut App, row: QuickRow) {
     a.apply(Action::QuickMenu);
-    let parent = row.parent();
-    for _ in 0..parent.unwrap_or(row).position(&[]) {
-        press(a, Btn::Down);
+    let mut path = vec![row];
+    while let Some(parent) = path.last().and_then(|r| r.parent()) {
+        path.push(parent);
     }
-    if parent.is_some() {
-        press(a, Btn::A);
-        for _ in 0..row.position(a.hidden_rows()) {
+    for (depth, step) in path.iter().rev().enumerate() {
+        if depth > 0 {
+            press(a, Btn::A);
+        }
+        for _ in 0..step.position(a.hidden_rows()) {
             press(a, Btn::Down);
         }
     }
@@ -106,122 +108,6 @@ fn the_quick_menu_is_only_on_the_carousel() {
         a.phase()
     );
     assert_eq!(a.quick_menu(), None);
-}
-
-#[test]
-fn bezels_open_gb_and_gbc_rows_that_start_on_the_shipped_frame() {
-    let (d, mut a, _) = on_carousel();
-    slot::bezel::install(d.path());
-    std::fs::write(d.path().join("bezels/GB/extra.png"), b"png").unwrap();
-    open_at(&mut a, QuickRow::Bezels);
-    press(&mut a, Btn::A);
-    assert_eq!(a.quick_menu(), Some(QuickRow::GbBezel));
-    assert_eq!(
-        a.resolved_bezel(Platform::Gb),
-        BezelPick::File("bezel_gb.png".into())
-    );
-    assert_eq!(a.resolved_bezel(Platform::Gb).label(), "bezel_gb");
-    press(&mut a, Btn::Right);
-    assert_eq!(
-        a.resolved_bezel(Platform::Gb),
-        BezelPick::File("extra.png".into())
-    );
-    press(&mut a, Btn::Right);
-    assert_eq!(a.resolved_bezel(Platform::Gb), BezelPick::None);
-    press(&mut a, Btn::Right);
-    assert_eq!(
-        a.resolved_bezel(Platform::Gb),
-        BezelPick::File("bezel_gb.png".into())
-    );
-    assert_eq!(
-        a.resolved_bezel(Platform::Gbc),
-        BezelPick::File("bezel_gbc.png".into())
-    );
-    press(&mut a, Btn::Down);
-    assert_eq!(a.quick_menu(), Some(QuickRow::GbcBezel));
-    press(&mut a, Btn::Left);
-    assert_eq!(a.resolved_bezel(Platform::Gbc), BezelPick::None);
-    press(&mut a, Btn::B);
-    assert_eq!(a.quick_menu(), Some(QuickRow::Bezels));
-    assert_eq!(read_slot_state(d.path()).bezel_gbc, BezelPick::None);
-}
-
-#[test]
-fn a_640_wide_panel_starts_on_the_rg35xxsp_frames_and_offers_the_others() {
-    let (d, mut a, _) = on_carousel();
-    slot::bezel::install(d.path());
-    a.set_panel((640, 480));
-    open_at(&mut a, QuickRow::Bezels);
-    press(&mut a, Btn::A);
-    assert_eq!(
-        a.resolved_bezel(Platform::Gb),
-        BezelPick::File("bezel_gb_rg35xxsp.png".into())
-    );
-    assert_eq!(a.resolved_bezel(Platform::Gb).label(), "bezel_gb_rg35xxsp");
-    assert_eq!(
-        a.resolved_bezel(Platform::Gbc),
-        BezelPick::File("bezel_gbc_rg35xxsp.png".into())
-    );
-    press(&mut a, Btn::Right);
-    assert_eq!(a.resolved_bezel(Platform::Gb), BezelPick::None);
-    press(&mut a, Btn::Right);
-    assert_eq!(
-        a.resolved_bezel(Platform::Gb),
-        BezelPick::File("bezel_gb_640.png".into())
-    );
-    press(&mut a, Btn::Right);
-    assert_eq!(
-        a.resolved_bezel(Platform::Gb),
-        BezelPick::File("bezel_gb_rg35xxsp.png".into())
-    );
-}
-
-#[test]
-fn a_card_from_before_bezels_gets_the_shipped_frames() {
-    let (d, a, _) = on_carousel();
-    slot::bezel::install(d.path());
-    assert_eq!(read_slot_state(d.path()).bezel_gb, BezelPick::Shipped);
-    assert_eq!(
-        a.resolved_bezel(Platform::Gbc),
-        BezelPick::File("bezel_gbc.png".into())
-    );
-}
-
-#[test]
-fn a_bezel_file_that_is_gone_falls_back_to_the_shipped_frame() {
-    let (d, a, _) = on_carousel_with(SlotState {
-        bezel_gb: BezelPick::File("gone.png".into()),
-        ..SlotState::default()
-    });
-    slot::bezel::install(d.path());
-    assert_eq!(
-        a.resolved_bezel(Platform::Gb),
-        BezelPick::File("bezel_gb.png".into())
-    );
-}
-
-#[test]
-fn a_frame_picked_on_another_screen_size_gives_this_screens_shipped_frame() {
-    let (d, mut a, _) = on_carousel_with(SlotState {
-        bezel_gb: BezelPick::File("bezel_gb.png".into()),
-        ..SlotState::default()
-    });
-    slot::bezel::install(d.path());
-    a.set_panel((640, 480));
-    assert_eq!(
-        a.resolved_bezel(Platform::Gb),
-        BezelPick::File("bezel_gb_rg35xxsp.png".into())
-    );
-}
-
-#[test]
-fn a_bezel_turned_off_stays_off() {
-    let (d, a, _) = on_carousel_with(SlotState {
-        bezel_gb: BezelPick::None,
-        ..SlotState::default()
-    });
-    slot::bezel::install(d.path());
-    assert_eq!(a.resolved_bezel(Platform::Gb), BezelPick::None);
 }
 
 #[test]
@@ -512,16 +398,13 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
     let (_d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::Screen);
     press(&mut a, Btn::A);
-    assert_eq!(a.quick_menu(), Some(QuickRow::GbaShader));
+    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenGba));
     for want in [
-        QuickRow::GbaColourCorrection,
-        QuickRow::GbcShader,
-        QuickRow::GbcColourCorrection,
-        QuickRow::GbShader,
-        QuickRow::GbColourCorrection,
-        QuickRow::GbPalettes,
-        QuickRow::Bezels,
-        QuickRow::GbaShader,
+        QuickRow::ScreenGbc,
+        QuickRow::ScreenGb,
+        QuickRow::ScreenGba,
+        QuickRow::ScreenGbc,
+        QuickRow::ScreenGb,
     ] {
         press(&mut a, Btn::Down);
         assert_eq!(
@@ -530,6 +413,23 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
             "the page did not wrap on itself"
         );
     }
+    press(&mut a, Btn::A);
+    assert_eq!(a.quick_menu(), Some(QuickRow::GbShader));
+    for want in [
+        QuickRow::GbColourCorrection,
+        QuickRow::GbPalettes,
+        QuickRow::GbBezel,
+        QuickRow::GbShader,
+    ] {
+        press(&mut a, Btn::Down);
+        assert_eq!(
+            a.quick_menu(),
+            Some(want),
+            "the page did not wrap on itself"
+        );
+    }
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenGb));
     press(&mut a, Btn::B);
     assert_eq!(a.quick_menu(), Some(QuickRow::Screen));
     press(&mut a, Btn::B);
@@ -562,10 +462,10 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
         );
     }
     assert_eq!(read_slot_state(d.path()).shader_gb, Shader::Simpletex);
-    for _ in QuickRow::GbaShader.position(&[])..QuickRow::GbShader.position(&[]) {
-        press(&mut a, Btn::Down);
+    while a.quick_menu().is_some() {
+        press(&mut a, Btn::B);
     }
-    assert_eq!(a.quick_menu(), Some(QuickRow::GbShader));
+    open_at(&mut a, QuickRow::GbShader);
     press(&mut a, Btn::Left);
     assert_eq!(read_slot_state(d.path()).shader_gb, Shader::Grid);
     assert_eq!(read_slot_state(d.path()).shader_gba, Shader::Off);
@@ -573,10 +473,10 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
         a.quick_value(QuickRow::GbcShader),
         Some(QuickValue::Simpletex)
     );
-    for _ in QuickRow::GbcShader.position(&[])..QuickRow::GbShader.position(&[]) {
-        press(&mut a, Btn::Up);
+    while a.quick_menu().is_some() {
+        press(&mut a, Btn::B);
     }
-    assert_eq!(a.quick_menu(), Some(QuickRow::GbcShader));
+    open_at(&mut a, QuickRow::GbcShader);
     press(&mut a, Btn::Right);
     let s = read_slot_state(d.path());
     assert_eq!(
@@ -1029,12 +929,14 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
         legend: [(id(400), 70), (id(401), 110), (id(402), 80), (id(403), 90)],
     });
     for page in [
-        &QuickRow::SCREEN[..],
+        &QuickRow::SCREEN_GBA[..],
+        &QuickRow::SCREEN_GBC[..],
+        &QuickRow::SCREEN_GB[..],
         &QuickRow::GAME[..],
         &QuickRow::GENERAL[..],
     ] {
         for &row in page {
-            if row.opens() {
+            if row.opens() || a.hidden_rows().contains(&row) {
                 continue;
             }
             open_at(&mut a, row);
@@ -1209,4 +1111,67 @@ fn the_tint_leaves_the_default_wallpaper_alone() {
     });
     a.set_ground(TexId::from_raw(800));
     assert_eq!(black_washes(&frame(&a)), Vec::<f32>::new());
+}
+
+#[test]
+fn a_wide_panel_offers_gb_and_gbc_frames_from_none_through_the_card() {
+    let (d, mut a, _) = on_carousel();
+    std::fs::write(d.path().join("Bezels/GBC/Pocket.png"), b"png").unwrap();
+    std::fs::write(d.path().join("Bezels/GBC/._Pocket.png"), b"no").unwrap();
+    assert_eq!(a.resolved_bezel(Platform::Gbc), BezelPick::None);
+    open_at(&mut a, QuickRow::GbcBezel);
+    for want in [
+        BezelPick::Default,
+        BezelPick::File("Pocket.png".into()),
+        BezelPick::None,
+    ] {
+        press(&mut a, Btn::Right);
+        assert_eq!(a.resolved_bezel(Platform::Gbc), want);
+    }
+    press(&mut a, Btn::Left);
+    assert_eq!(
+        read_slot_state(d.path()).bezel_gbc,
+        BezelPick::File("Pocket.png".into())
+    );
+    assert_eq!(a.resolved_bezel(Platform::Gb), BezelPick::None);
+    press(&mut a, Btn::Down);
+    assert_eq!(a.quick_menu(), Some(QuickRow::GbcShader));
+    assert!(!a.sp_frame());
+}
+
+#[test]
+fn a_four_by_three_panel_keeps_ags_102_until_another_frame_is_picked() {
+    let (d, mut a, _) = on_carousel();
+    a.set_panel((640, 480));
+    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
+        assert_eq!(
+            a.resolved_bezel(platform),
+            BezelPick::Ags102,
+            "{platform:?}"
+        );
+    }
+    assert!(a.sp_frame());
+    open_at(&mut a, QuickRow::GbaBezel);
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_bezel(Platform::Gba), BezelPick::None);
+    assert!(!a.sp_frame());
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_bezel(Platform::Gba), BezelPick::Ags102);
+    while a.quick_menu().is_some() {
+        press(&mut a, Btn::B);
+    }
+    open_at(&mut a, QuickRow::GbcBezel);
+    press(&mut a, Btn::Left);
+    assert_eq!(a.resolved_bezel(Platform::Gbc), BezelPick::Default);
+    assert_eq!(read_slot_state(d.path()).bezel_gbc, BezelPick::Default);
+    assert_eq!(read_slot_state(d.path()).bezel_gba, BezelPick::Ags102);
+}
+
+#[test]
+fn a_frame_file_that_is_gone_reads_back_as_none() {
+    let (_d, a, _) = on_carousel_with(SlotState {
+        bezel_gb: BezelPick::File("gone.png".into()),
+        ..SlotState::default()
+    });
+    assert_eq!(a.resolved_bezel(Platform::Gb), BezelPick::None);
 }

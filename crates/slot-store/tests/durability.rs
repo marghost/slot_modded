@@ -3,7 +3,8 @@ mod common;
 use common::tmp_root;
 use slot_store::{
     atomic_write, read_slot_state, write_slot_state, Appearance, BezelPick, GbPalette, Platform,
-    Shader, SlotState, StartupScreen, WallpaperPick, WallpaperTint, FF_SPEEDS, FF_SPEED_DEFAULT,
+    Recent, Shader, SlotState, StartupScreen, WallpaperPick, WallpaperTint, FF_SPEEDS,
+    FF_SPEED_DEFAULT,
 };
 use tempfile::tempdir;
 
@@ -216,17 +217,20 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             runahead: 0,
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
-            startup_screen: StartupScreen::Gba,
-            bezel_gb: BezelPick::Shipped,
-            bezel_gbc: BezelPick::Shipped,
+            startup_screen: StartupScreen::Last,
             appearance: Appearance::Dark,
             wallpaper: WallpaperPick::Default,
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
             show_favorites: true,
             show_titles: false,
+            bezel_gba: BezelPick::Ags102,
+            bezel_gb: BezelPick::Ags102,
+            bezel_gbc: BezelPick::Ags102,
             recents: Vec::new(),
             favorites: Vec::new(),
+            shelf: None,
+            shelf_cart: None,
         }
     );
 }
@@ -254,6 +258,14 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         wallpaper_tint: WallpaperTint::Medium,
         colour_correction_gbc: true,
         shader_gbc: Shader::Grid,
+        bezel_gba: BezelPick::None,
+        bezel_gb: BezelPick::Default,
+        bezel_gbc: BezelPick::File("Pocket.png".into()),
+        shelf: Some("gba".into()),
+        shelf_cart: Some(Recent {
+            platform: Platform::Gba,
+            stem: "Drill Dozer".into(),
+        }),
         ..SlotState::default()
     };
     write_slot_state(d.path(), &s).unwrap();
@@ -277,8 +289,13 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "gb_palette=GBC Dark Green →A",
         "appearance=dark",
         "wallpaper_tint=medium",
+        "bezel_gba=none",
+        "bezel_gb=default",
+        "bezel_gbc=Pocket.png",
         "colour_correction_gbc=1",
         "shader_gbc=grid",
+        "shelf=gba",
+        "shelf_cart=gba/Drill Dozer",
     ] {
         assert!(text.lines().any(|l| l == line), "no {line} in {text:?}");
     }

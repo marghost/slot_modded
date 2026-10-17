@@ -57,7 +57,6 @@ pub struct Sprites {
     prog: gl::types::GLuint,
     white: gl::types::GLuint,
     textures: Vec<gl::types::GLuint>,
-    canvas: crate::Canvas,
     u_rect: gl::types::GLint,
     u_colour: gl::types::GLint,
     u_turn: gl::types::GLint,
@@ -91,7 +90,6 @@ impl Sprites {
             prog,
             white,
             textures: Vec::new(),
-            canvas: crate::Canvas::FRAMED,
             u_rect,
             u_colour,
             u_turn,
@@ -101,7 +99,6 @@ impl Sprites {
     }
 
     pub fn set_target(&mut self, canvas: crate::Canvas) {
-        self.canvas = canvas;
         unsafe {
             gl::UseProgram(self.prog);
             gl::Uniform2f(self.u_target, canvas.w, canvas.h);
@@ -148,17 +145,6 @@ impl Sprites {
 
     pub fn source(&self, id: TexId) -> Option<gl::types::GLuint> {
         self.textures.get(id.0).copied()
-    }
-
-    /// Draw `items` as if the target were `size` pixels, then put the canvas
-    /// target back. The viewport must already be that size.
-    pub fn draw_in(&self, size: (u32, u32), items: &[Draw], quad: &Quad) {
-        unsafe {
-            gl::UseProgram(self.prog);
-            gl::Uniform2f(self.u_target, size.0 as f32, size.1 as f32);
-        }
-        self.draw(items, quad);
-        unsafe { gl::Uniform2f(self.u_target, self.canvas.w, self.canvas.h) };
     }
 
     pub fn draw(&self, items: &[Draw], quad: &Quad) {

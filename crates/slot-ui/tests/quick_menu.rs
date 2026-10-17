@@ -111,22 +111,25 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Recents",
             "Favorites",
             "Startup Screen",
-            "Show Titles",
+            "Game Titles",
             "Date & Time"
         ]
     );
     assert_eq!(
         QuickRow::SCREEN.map(QuickRow::label),
-        [
-            "GBA Shader",
-            "GBA Color Correction",
-            "GBC Shader",
-            "GBC Color Correction",
-            "GB Shader",
-            "GB Color Correction",
-            "GB Palettes",
-            "GB / GBC Bezels"
-        ]
+        ["Game Boy Advance", "Game Boy Color", "Game Boy"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_GBA.map(QuickRow::label),
+        ["Shader", "Color Correction", "Bezel"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_GBC.map(QuickRow::label),
+        ["Shader", "Color Correction", "Bezel"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_GB.map(QuickRow::label),
+        ["Shader", "Color Correction", "Palettes", "Bezel"]
     );
     assert_eq!(
         QuickRow::GAME.map(QuickRow::label),
@@ -157,8 +160,10 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::PlayScreen,
             QuickRow::PlayGameplay,
             QuickRow::CheatSheet,
-            QuickRow::Bezels,
-            QuickRow::PlayCheatSheet
+            QuickRow::PlayCheatSheet,
+            QuickRow::ScreenGba,
+            QuickRow::ScreenGbc,
+            QuickRow::ScreenGb
         ]
     );
     for page in [
@@ -169,7 +174,9 @@ fn the_rows_run_in_the_order_the_user_chose() {
         &QuickRow::PLAY[..],
         &QuickRow::SETTINGS[..],
         &QuickRow::PLAY_SCREEN[..],
-        &QuickRow::BEZELS[..],
+        &QuickRow::SCREEN_GBA[..],
+        &QuickRow::SCREEN_GBC[..],
+        &QuickRow::SCREEN_GB[..],
     ] {
         for &row in page {
             assert_eq!(row.page(), page, "{row:?}");
@@ -216,6 +223,7 @@ fn the_values_read_as_the_menu_prints_them() {
             "25%",
             "45%",
             "65%",
+            "Last Used",
             "GBA",
             "GB",
             "GBC",
@@ -333,7 +341,8 @@ fn the_in_game_pages_hold_their_rows_in_order() {
         [
             QuickRow::Shader,
             QuickRow::ColourCorrection,
-            QuickRow::Palette
+            QuickRow::Palette,
+            QuickRow::Bezel
         ]
     );
     for row in QuickRow::PLAY {
@@ -390,15 +399,31 @@ fn in_game_rows_read_as_the_menu_shows_them() {
 }
 
 #[test]
-fn a_hidden_palette_leaves_two_screen_rows() {
+fn a_hidden_palette_and_bezel_leave_two_screen_rows() {
+    let hidden = [QuickRow::Palette, QuickRow::Bezel];
     assert_eq!(
-        QuickRow::Shader.shown(&[QuickRow::Palette]),
+        QuickRow::Shader.shown(&hidden),
         vec![QuickRow::Shader, QuickRow::ColourCorrection]
     );
-    assert_eq!(
-        QuickRow::ColourCorrection.down(&[QuickRow::Palette]),
-        QuickRow::Shader
-    );
+    assert_eq!(QuickRow::ColourCorrection.down(&hidden), QuickRow::Shader);
+}
+
+#[test]
+fn screen_opens_a_page_per_console_and_each_backs_out_to_its_console() {
+    assert_eq!(QuickRow::Screen.child(), Some(QuickRow::ScreenGba));
+    for (console, page) in [
+        (QuickRow::ScreenGba, &QuickRow::SCREEN_GBA[..]),
+        (QuickRow::ScreenGbc, &QuickRow::SCREEN_GBC[..]),
+        (QuickRow::ScreenGb, &QuickRow::SCREEN_GB[..]),
+    ] {
+        assert_eq!(console.parent(), Some(QuickRow::Screen));
+        assert_eq!(console.child(), Some(page[0]));
+        for &row in page {
+            assert_eq!(row.parent(), Some(console), "{row:?}");
+        }
+    }
+    assert!(QuickRow::ScreenGb.centred());
+    assert!(!QuickRow::GbShader.centred());
 }
 
 #[test]

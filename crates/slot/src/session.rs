@@ -254,12 +254,9 @@ impl Session {
             }
         }
         if let Some(on) = self.app.take_colour_correction() {
-            if let Some((key, value)) = crate::core::colour_option(
-                self.app.core(),
-                self.app.playing_platform(),
-                on,
-                self.app.palette_live(),
-            ) {
+            if let Some((key, value)) =
+                crate::core::colour_option(self.app.core(), self.app.playing_platform(), on)
+            {
                 if let Some(emu) = &self.emu {
                     emu.set_option(key, value);
                     recoloured = true;

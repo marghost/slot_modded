@@ -279,14 +279,18 @@ fn the_screen_page_sets_gb_palettes_in_line_with_the_rows_above() {
         tap(&mut f, &mut input, Btn::Down);
     }
     tap(&mut f, &mut input, Btn::A);
+    for _ in 0..QuickRow::ScreenGb.position(&[]) {
+        tap(&mut f, &mut input, Btn::Down);
+    }
+    tap(&mut f, &mut input, Btn::A);
     for _ in 0..QuickRow::GbPalettes.position(&[]) {
         tap(&mut f, &mut input, Btn::Down);
     }
     let px = composed(&mut f, &mut c, "screen-page");
 
     let top = quick_row_top(QuickRow::GbPalettes, &[]) as usize;
-    beside("GB Palettes", pointer(&px, top));
-    for row in QuickRow::SCREEN {
+    beside("Palettes", pointer(&px, top));
+    for row in QuickRow::SCREEN_GB {
         let top = quick_row_top(row, &[]) as usize;
         if row != QuickRow::GbPalettes {
             assert!(pointer(&px, top).is_none(), "a pointer at {row:?} as well");

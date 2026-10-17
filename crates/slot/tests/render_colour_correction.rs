@@ -285,7 +285,7 @@ fn colour_correction_changes_the_picture_on_every_platform() {
 }
 
 #[test]
-fn a_gb_palette_suppresses_gbc_colour_correction() {
+fn gbc_colour_correction_still_tints_a_gb_palette() {
     let Some(dylib) = vendored_core() else {
         eprintln!("no mgba dylib, skipping");
         return;
@@ -304,8 +304,8 @@ fn a_gb_palette_suppresses_gbc_colour_correction() {
     let palette = Some(GbPalette::DEFAULT);
     let off = picture(d.path(), &dylib, &rom, Platform::Gb, palette, false, frames);
     let on = picture(d.path(), &dylib, &rom, Platform::Gb, palette, true, frames);
-    assert_eq!(
+    assert_ne!(
         on, off,
-        "GBC correction changed a Game Boy picture while a GB palette was active"
+        "GBC correction left a Game Boy picture in a GB palette untouched"
     );
 }

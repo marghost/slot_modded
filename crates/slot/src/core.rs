@@ -157,14 +157,11 @@ pub fn colour_option(
     which: Core,
     platform: Platform,
     on: bool,
-    gb_palette: bool,
 ) -> Option<(&'static str, &'static str)> {
     match which {
         Core::Mgba => Some((
             "mgba_color_correction",
-            if platform == Platform::Gb && gb_palette {
-                "OFF"
-            } else if on && platform == Platform::Gb {
+            if on && platform == Platform::Gb {
                 "GBC"
             } else if on {
                 "Auto"
@@ -213,7 +210,7 @@ pub fn apply_core_options(
                 core.set_option("mgba_gb_colors", "GBC Dark Green →A");
             }
         }
-        if let Some((key, value)) = colour_option(which, platform, colour, palette.is_some()) {
+        if let Some((key, value)) = colour_option(which, platform, colour) {
             core.set_option(key, value);
         }
     }
@@ -223,7 +220,7 @@ pub fn apply_core_options(
         if bios {
             core.set_option("gpsp_boot_mode", "bios");
         }
-        if let Some((key, value)) = colour_option(which, platform, colour, false) {
+        if let Some((key, value)) = colour_option(which, platform, colour) {
             core.set_option(key, value);
         }
     }
@@ -239,19 +236,19 @@ mod tests {
     #[test]
     fn each_core_spells_colour_correction_its_own_way() {
         assert_eq!(
-            colour_option(Core::Mgba, Platform::Gba, true, false),
+            colour_option(Core::Mgba, Platform::Gba, true),
             Some(("mgba_color_correction", "Auto"))
         );
         assert_eq!(
-            colour_option(Core::Mgba, Platform::Gba, false, false),
+            colour_option(Core::Mgba, Platform::Gba, false),
             Some(("mgba_color_correction", "OFF"))
         );
         assert_eq!(
-            colour_option(Core::Gpsp, Platform::Gba, true, false),
+            colour_option(Core::Gpsp, Platform::Gba, true),
             Some(("gpsp_color_correction", "enabled"))
         );
         assert_eq!(
-            colour_option(Core::Gpsp, Platform::Gba, false, false),
+            colour_option(Core::Gpsp, Platform::Gba, false),
             Some(("gpsp_color_correction", "disabled"))
         );
     }
@@ -259,16 +256,8 @@ mod tests {
     #[test]
     fn mgba_uses_gbc_correction_for_game_boy_games() {
         assert_eq!(
-            colour_option(Core::Mgba, Platform::Gb, true, false),
+            colour_option(Core::Mgba, Platform::Gb, true),
             Some(("mgba_color_correction", "GBC"))
-        );
-    }
-
-    #[test]
-    fn a_gb_palette_takes_precedence_over_gbc_correction() {
-        assert_eq!(
-            colour_option(Core::Mgba, Platform::Gb, true, true),
-            Some(("mgba_color_correction", "OFF"))
         );
     }
 

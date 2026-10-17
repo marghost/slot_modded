@@ -398,6 +398,8 @@ kbd{
 }
 .reference h3:first-of-type,.faq h3:first-of-type{margin-top:0}
 .reference kbd{font-size:15px;padding:3px 8px}
+.credits dd a{color:var(--ink)}
+.credits .credits-fine{margin:36px 0 0;font-size:16px;color:var(--muted)}
 .keys{margin:0;width:100%;border-top:1px solid var(--rule)}
 .key{
   display:grid;

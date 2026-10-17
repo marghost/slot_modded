@@ -8,9 +8,9 @@ use slot_power::{Battery, Charge, LedState, LidPolicy, Power};
 use slot_retro::LinkChannel;
 use slot_store::{
     format_stamp, import_legacy_favorites, read_slot_state, remove_legacy_favorites, scan,
-    write_slot_state, BezelPick, Cart, Core, GbPalette, Platform, Shader, SlotState, StartupScreen,
-    StateEntry, StateRing, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS,
-    RING_MAX, RUN_AHEAD_MAX, VOLUME_MAX,
+    write_slot_state, BezelPick, Cart, Core, GbPalette, Platform, Recent, Shader, SlotState,
+    StartupScreen, StateEntry, StateRing, WallpaperPick, WallpaperTint, BLUE_LIGHT_MAX,
+    BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, RUN_AHEAD_MAX, VOLUME_MAX,
 };
 use slot_ui::{
     board_from, board_x, board_zoom, draw_cheat_sheet, draw_empty_slot, draw_footer, draw_ground,
@@ -286,6 +286,14 @@ impl Rack {
         }
     }
 
+    fn key(self) -> String {
+        match self {
+            Rack::Recents => "recents".into(),
+            Rack::Favorites => "favorites".into(),
+            Rack::Of(p) => p.dir_name().to_ascii_lowercase(),
+        }
+    }
+
     fn name(self) -> &'static str {
         match self {
             Rack::Recents => "Recents",
@@ -362,17 +370,14 @@ pub struct App {
     clock_faces: Option<(TexId, TexId)>,
     quick_menu_faces: Option<QuickMenuFaces>,
     quick_clock_faces: Option<[(TexId, u32, u32); 2]>,
-    quick_gb_bezel_faces: Option<[(TexId, u32, u32); 2]>,
-    quick_gbc_bezel_faces: Option<[(TexId, u32, u32); 2]>,
-    game_bezel: Option<TexId>,
-    game_bezel_size: (u32, u32),
-    game_bezel_hole: Option<[f32; 4]>,
     panel: (u32, u32),
     modded_face: Option<TexId>,
     version_face: Option<(TexId, u32, u32)>,
     cheat_sheet_face: Option<TexId>,
     quick_wallpaper_faces: Option<[(TexId, u32, u32); 2]>,
     quick_palette_faces: Option<[(TexId, u32, u32); 2]>,
+    quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; 3],
+    game_bezel: Option<TexId>,
     in_game_menu: Option<QuickRow>,
     states_from_menu: bool,
     menu_tap: Option<(Millis, Option<QuickRow>)>,
@@ -518,17 +523,14 @@ impl App {
             clock_faces: None,
             quick_menu_faces: None,
             quick_clock_faces: None,
-            quick_gb_bezel_faces: None,
-            quick_gbc_bezel_faces: None,
-            game_bezel: None,
-            game_bezel_size: (0, 0),
-            game_bezel_hole: None,
-            panel: (OUT_W, OUT_H),
+            panel: (0, 0),
             modded_face: None,
             version_face: None,
             cheat_sheet_face: None,
             quick_wallpaper_faces: None,
             quick_palette_faces: None,
+            quick_bezel_faces: [None, None, None],
+            game_bezel: None,
             in_game_menu: None,
             states_from_menu: false,
             menu_tap: None,
@@ -637,18 +639,30 @@ impl App {
         }
     }
 
-    fn startup_kind(&self) -> Rack {
-        match self.state.startup_screen {
+    fn startup_at(&self) -> usize {
+        let kind = match self.state.startup_screen {
+            StartupScreen::Last => {
+                let last = self
+                    .state
+                    .shelf
+                    .as_deref()
+                    .and_then(|key| self.shelves.iter().position(|(r, _)| r.key() == key));
+                return last.unwrap_or(match self.shelves[RECENTS_AT].1.carts.is_empty() {
+                    true => self.shelf_of(Rack::Of(Platform::Gba)),
+                    false => RECENTS_AT,
+                });
+            }
             StartupScreen::Gba => Rack::Of(Platform::Gba),
             StartupScreen::Gb => Rack::Of(Platform::Gb),
             StartupScreen::Gbc => Rack::Of(Platform::Gbc),
             StartupScreen::Favorites => Rack::Favorites,
             StartupScreen::Recents => Rack::Recents,
-        }
+        };
+        self.shelf_of(kind)
     }
 
     fn seat_on_startup(&self, stem: &str, platform: Option<Platform>) -> Option<(usize, usize)> {
-        let at = self.shelf_of(self.startup_kind());
+        let at = self.startup_at();
         self.shelves[at]
             .1
             .carts
@@ -658,7 +672,14 @@ impl App {
     }
 
     fn open_startup_screen(&mut self) {
-        let at = self.shelf_of(self.startup_kind());
+        if self.state.startup_screen == StartupScreen::Last {
+            if let Some((at, i)) = self.remembered_seat() {
+                self.shelf_at = at;
+                self.shelves[at].1.select(i);
+                return;
+            }
+        }
+        let at = self.startup_at();
         if !self.shelves[at].1.carts.is_empty() {
             self.shelf_at = at;
             return;
@@ -695,6 +716,18 @@ impl App {
         if changed {
             self.persist();
         }
+    }
+
+    fn remember_shelf(&mut self) {
+        let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
+            return;
+        };
+        self.state.shelf_cart = Some(Recent {
+            platform: cart.platform,
+            stem: cart.stem.clone(),
+        });
+        self.state.shelf = Some(self.shelves[self.shelf_at].0.key());
+        self.persist();
     }
 
     fn shelf_of(&self, kind: Rack) -> usize {
@@ -846,6 +879,18 @@ impl App {
             .find(|at| !self.shelves[*at].1.carts.is_empty())
     }
 
+    fn remembered_seat(&self) -> Option<(usize, usize)> {
+        let key = self.state.shelf.as_deref()?;
+        let cart = self.state.shelf_cart.as_ref()?;
+        let at = self.shelves.iter().position(|(r, _)| r.key() == key)?;
+        let i = self.shelves[at]
+            .1
+            .carts
+            .iter()
+            .position(|c| c.platform == cart.platform && c.stem == cart.stem)?;
+        Some((at, i))
+    }
+
     fn seat_of(&self, stem: &str, platform: Option<Platform>) -> Option<(usize, usize)> {
         self.shelves
             .iter()
@@ -920,11 +965,16 @@ impl App {
     }
 
     pub fn in_game_hidden(&self) -> &'static [QuickRow] {
-        match (self.palette_live, self.single_cart()) {
-            (true, false) => &[],
-            (false, false) => &[QuickRow::Palette],
-            (true, true) => &[QuickRow::ExitGame],
-            (false, true) => &[QuickRow::Palette, QuickRow::ExitGame],
+        let no_bezel = self.playing_platform() == Platform::Gba && !self.framed_panel();
+        match (self.palette_live, no_bezel, self.single_cart()) {
+            (true, false, false) => &[],
+            (true, false, true) => &[QuickRow::ExitGame],
+            (true, true, false) => &[QuickRow::Bezel],
+            (true, true, true) => &[QuickRow::Bezel, QuickRow::ExitGame],
+            (false, false, false) => &[QuickRow::Palette],
+            (false, false, true) => &[QuickRow::Palette, QuickRow::ExitGame],
+            (false, true, false) => &[QuickRow::Palette, QuickRow::Bezel],
+            (false, true, true) => &[QuickRow::Palette, QuickRow::Bezel, QuickRow::ExitGame],
         }
     }
 
@@ -944,6 +994,9 @@ impl App {
             (QuickRow::ColourCorrection, Platform::Gba) => QuickRow::GbaColourCorrection,
             (QuickRow::ColourCorrection, Platform::Gb) => QuickRow::GbColourCorrection,
             (QuickRow::ColourCorrection, Platform::Gbc) => QuickRow::GbcColourCorrection,
+            (QuickRow::Bezel, Platform::Gba) => QuickRow::GbaBezel,
+            (QuickRow::Bezel, Platform::Gb) => QuickRow::GbBezel,
+            (QuickRow::Bezel, Platform::Gbc) => QuickRow::GbcBezel,
             (row, _) => row,
         }
     }
@@ -1004,9 +1057,6 @@ impl App {
             | QuickRow::About
             | QuickRow::Screen
             | QuickRow::Game
-            | QuickRow::Bezels
-            | QuickRow::GbBezel
-            | QuickRow::GbcBezel
             | QuickRow::General
             | QuickRow::Wallpaper
             | QuickRow::Resume
@@ -1016,7 +1066,14 @@ impl App {
             | QuickRow::PlayCheatSheet
             | QuickRow::PlayScreen
             | QuickRow::PlayGameplay
-            | QuickRow::Palette => None,
+            | QuickRow::Palette
+            | QuickRow::ScreenGba
+            | QuickRow::ScreenGbc
+            | QuickRow::ScreenGb
+            | QuickRow::GbBezel
+            | QuickRow::GbcBezel
+            | QuickRow::GbaBezel
+            | QuickRow::Bezel => None,
         }
     }
 
@@ -1026,34 +1083,6 @@ impl App {
 
     pub fn set_quick_clock_faces(&mut self, dim: (TexId, u32, u32), lit: (TexId, u32, u32)) {
         self.quick_clock_faces = Some([dim, lit]);
-    }
-
-    pub fn set_quick_bezel_faces(
-        &mut self,
-        platform: Platform,
-        dim: (TexId, u32, u32),
-        lit: (TexId, u32, u32),
-    ) {
-        let faces = Some([dim, lit]);
-        match platform {
-            Platform::Gb => self.quick_gb_bezel_faces = faces,
-            Platform::Gbc => self.quick_gbc_bezel_faces = faces,
-            Platform::Gba => {}
-        }
-    }
-
-    pub fn set_panel(&mut self, size: (u32, u32)) {
-        self.panel = size;
-    }
-
-    pub fn panel_width(&self) -> u32 {
-        self.panel.0
-    }
-
-    pub fn set_game_bezel(&mut self, tex: Option<TexId>, size: (u32, u32), hole: Option<[f32; 4]>) {
-        self.game_bezel = tex;
-        self.game_bezel_size = size;
-        self.game_bezel_hole = hole;
     }
 
     pub fn platform(&self) -> Platform {
@@ -1067,6 +1096,85 @@ impl App {
 
     pub fn set_quick_wallpaper_faces(&mut self, dim: (TexId, u32, u32), lit: (TexId, u32, u32)) {
         self.quick_wallpaper_faces = Some([dim, lit]);
+    }
+
+    pub fn set_quick_bezel_faces(
+        &mut self,
+        platform: Platform,
+        dim: (TexId, u32, u32),
+        lit: (TexId, u32, u32),
+    ) {
+        self.quick_bezel_faces[bezel_slot(platform)] = Some([dim, lit]);
+    }
+
+    pub fn bezel_files(&self, platform: Platform) -> Vec<String> {
+        match platform {
+            Platform::Gba => Vec::new(),
+            _ => self
+                .root()
+                .map(|root| crate::bezel::list(root, platform))
+                .unwrap_or_default(),
+        }
+    }
+
+    fn bezel_choices(&self, platform: Platform) -> Vec<BezelPick> {
+        let mut choices = vec![BezelPick::None];
+        if platform != Platform::Gba {
+            choices.push(BezelPick::Default);
+        }
+        if self.framed_panel() {
+            choices.push(BezelPick::Ags102);
+        }
+        choices.extend(self.bezel_files(platform).into_iter().map(BezelPick::File));
+        choices
+    }
+
+    fn bezel_pick(&mut self, platform: Platform) -> &mut BezelPick {
+        match platform {
+            Platform::Gba => &mut self.state.bezel_gba,
+            Platform::Gb => &mut self.state.bezel_gb,
+            Platform::Gbc => &mut self.state.bezel_gbc,
+        }
+    }
+
+    pub fn resolved_bezel(&self, platform: Platform) -> BezelPick {
+        let pick = match platform {
+            Platform::Gba => &self.state.bezel_gba,
+            Platform::Gb => &self.state.bezel_gb,
+            Platform::Gbc => &self.state.bezel_gbc,
+        };
+        match self.bezel_choices(platform).contains(pick) {
+            true => pick.clone(),
+            false => BezelPick::None,
+        }
+    }
+
+    fn cycle_bezel(&mut self, platform: Platform, right: bool) {
+        let choices = self.bezel_choices(platform);
+        let key = self.resolved_bezel(platform).key();
+        let at = choices.iter().position(|c| c.key() == key).unwrap_or(0);
+        let n = choices.len();
+        *self.bezel_pick(platform) = choices[if right {
+            (at + 1) % n
+        } else {
+            (at + n - 1) % n
+        }]
+        .clone();
+    }
+
+    pub fn sp_frame(&self) -> bool {
+        self.resolved_bezel(self.playing_platform()) == BezelPick::Ags102
+    }
+
+    pub fn set_game_bezel(&mut self, tex: Option<TexId>) {
+        self.game_bezel = tex;
+    }
+
+    pub fn shown_game_bezel(&self) -> Option<TexId> {
+        if self.video_mode == VideoMode::Stretch {
+            return None;
+        }
+        self.game_bezel
     }
 
     pub fn wallpaper_files(&self) -> Vec<String> {
@@ -1164,9 +1272,15 @@ impl App {
     }
 
     pub fn hidden_rows(&self) -> &'static [QuickRow] {
-        match self.state.wallpaper {
-            WallpaperPick::File(_) | WallpaperPick::Random => &[],
-            _ => &[QuickRow::WallpaperTint],
+        let own = matches!(
+            self.state.wallpaper,
+            WallpaperPick::File(_) | WallpaperPick::Random
+        );
+        match (own, self.framed_panel()) {
+            (true, true) => &[],
+            (true, false) => &[QuickRow::GbaBezel],
+            (false, true) => &[QuickRow::WallpaperTint],
+            (false, false) => &[QuickRow::WallpaperTint, QuickRow::GbaBezel],
         }
     }
 
@@ -1446,98 +1560,6 @@ impl App {
 
     pub fn source_rect(&self) -> [f32; 4] {
         video_mode::source_rect(self.platform, self.video_mode)
-    }
-
-    /// The frame over a Game Boy or Color picture. It stays up while the
-    /// picture opens and closes, and stays off in fullscreen stretch.
-    pub fn shown_game_bezel(&self) -> Option<(TexId, u32, u32, [f32; 4])> {
-        if self.video_mode == VideoMode::Stretch {
-            return None;
-        }
-        if self.screen <= 0.0 {
-            return None;
-        }
-        if !matches!(self.phase, Phase::Playing { .. } | Phase::Ejecting { .. }) {
-            return None;
-        }
-        if self.game_menu.is_some() || self.in_game_menu_shown().is_some() {
-            return None;
-        }
-        if !matches!(self.platform, Platform::Gb | Platform::Gbc) {
-            return None;
-        }
-        Some((
-            self.game_bezel?,
-            self.game_bezel_size.0,
-            self.game_bezel_size.1,
-            self.game_bezel_hole?,
-        ))
-    }
-
-    pub fn hud_area(&self) -> Option<[f32; 4]> {
-        let (_, w, h, hole) = self.shown_game_bezel()?;
-        let (cw, ch) = (slot_gfx::OUT_W as f32, slot_gfx::OUT_H as f32);
-        let (sx, sy) = match (w, h) == self.panel && (w, h) != (slot_gfx::OUT_W, slot_gfx::OUT_H) {
-            true => {
-                let shown_h = (w as f32 * ch / cw).round();
-                (cw / w as f32, ch / shown_h)
-            }
-            false => (cw / w as f32, ch / h as f32),
-        };
-        let (w, h) = (w as f32, h as f32);
-        let x0 = (hole[0] * w * sx).clamp(0.0, cw);
-        let y0 = (hole[1] * h * sy).clamp(0.0, ch);
-        let x1 = ((hole[0] + hole[2]) * w * sx).clamp(0.0, cw);
-        let y1 = ((hole[1] + hole[3]) * h * sy).clamp(0.0, ch);
-        Some([x0, y0, x1 - x0, y1 - y0])
-    }
-
-    pub fn bezel_files(&self, platform: Platform) -> Vec<String> {
-        self.root()
-            .map(|root| crate::bezel::list(root, platform, self.panel_width()))
-            .unwrap_or_default()
-    }
-
-    pub fn resolved_bezel(&self, platform: Platform) -> BezelPick {
-        let files = self.bezel_files(platform);
-        match self.bezel_pick(platform) {
-            BezelPick::None => BezelPick::None,
-            BezelPick::File(name) if files.contains(&name) => BezelPick::File(name),
-            _ => crate::bezel::shipped(platform, self.panel_width())
-                .map(str::to_string)
-                .filter(|name| files.contains(name))
-                .map_or(BezelPick::None, BezelPick::File),
-        }
-    }
-
-    fn bezel_pick(&self, platform: Platform) -> BezelPick {
-        match platform {
-            Platform::Gb => self.state.bezel_gb.clone(),
-            Platform::Gbc => self.state.bezel_gbc.clone(),
-            Platform::Gba => BezelPick::None,
-        }
-    }
-
-    fn set_bezel_pick(&mut self, platform: Platform, pick: BezelPick) {
-        match platform {
-            Platform::Gb => self.state.bezel_gb = pick,
-            Platform::Gbc => self.state.bezel_gbc = pick,
-            Platform::Gba => {}
-        }
-    }
-
-    fn cycle_bezel(&mut self, platform: Platform, right: bool) {
-        let mut choices = vec![BezelPick::None];
-        choices.extend(self.bezel_files(platform).into_iter().map(BezelPick::File));
-        let key = self.resolved_bezel(platform).key();
-        let at = choices.iter().position(|c| c.key() == key).unwrap_or(0);
-        let n = choices.len();
-        let next = if right {
-            (at + 1) % n
-        } else {
-            (at + n - 1) % n
-        };
-        self.set_bezel_pick(platform, choices[next].clone());
     }
 
     fn slot_owns_the_shoulders(&self) -> bool {
@@ -2228,8 +2250,14 @@ impl App {
             }
             QuickRow::About => self.phase = Phase::About,
             QuickRow::CheatSheet => self.phase = Phase::CheatSheet { page: 0 },
-            QuickRow::Screen | QuickRow::Game | QuickRow::General | QuickRow::Bezels => {
+            QuickRow::Screen
+            | QuickRow::Game
+            | QuickRow::General
+            | QuickRow::ScreenGba
+            | QuickRow::ScreenGbc
+            | QuickRow::ScreenGb => {
                 if let Some(row) = row.child() {
+                    let row = row.shown(self.hidden_rows())[0];
                     self.phase = Phase::QuickMenu { row };
                 }
             }
@@ -2249,8 +2277,6 @@ impl App {
             | QuickRow::GbPalettes
             | QuickRow::RunAhead
             | QuickRow::Rumble
-            | QuickRow::GbBezel
-            | QuickRow::GbcBezel
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::Favorites
@@ -2266,21 +2292,16 @@ impl App {
             | QuickRow::PlayGameplay
             | QuickRow::Shader
             | QuickRow::ColourCorrection
-            | QuickRow::Palette => {}
+            | QuickRow::Palette
+            | QuickRow::GbBezel
+            | QuickRow::GbcBezel
+            | QuickRow::GbaBezel
+            | QuickRow::Bezel => {}
         }
     }
 
     fn change_setting(&mut self, row: QuickRow, right: bool) {
         let row = self.playing_row(row);
-        if let Some(platform) = match row {
-            QuickRow::GbBezel => Some(Platform::Gb),
-            QuickRow::GbcBezel => Some(Platform::Gbc),
-            _ => None,
-        } {
-            self.cycle_bezel(platform, right);
-            self.persist();
-            return;
-        }
         if row == QuickRow::Palette {
             let to = match right {
                 true => self.state.gb_palette.next(),
@@ -2288,6 +2309,16 @@ impl App {
             };
             self.state.gb_palette = to;
             self.palette_pending = Some(to);
+            self.persist();
+            return;
+        }
+        if let QuickRow::GbaBezel | QuickRow::GbBezel | QuickRow::GbcBezel = row {
+            let platform = match row {
+                QuickRow::GbaBezel => Platform::Gba,
+                QuickRow::GbBezel => Platform::Gb,
+                _ => Platform::Gbc,
+            };
+            self.cycle_bezel(platform, right);
             self.persist();
             return;
         }
@@ -2378,9 +2409,6 @@ impl App {
             | QuickRow::About
             | QuickRow::Screen
             | QuickRow::Game
-            | QuickRow::Bezels
-            | QuickRow::GbBezel
-            | QuickRow::GbcBezel
             | QuickRow::General
             | QuickRow::Resume
             | QuickRow::States
@@ -2391,7 +2419,14 @@ impl App {
             | QuickRow::PlayGameplay
             | QuickRow::Shader
             | QuickRow::ColourCorrection
-            | QuickRow::Palette => return,
+            | QuickRow::Palette
+            | QuickRow::ScreenGba
+            | QuickRow::ScreenGbc
+            | QuickRow::ScreenGb
+            | QuickRow::GbBezel
+            | QuickRow::GbcBezel
+            | QuickRow::GbaBezel
+            | QuickRow::Bezel => return,
         }
         self.persist();
     }
@@ -2723,6 +2758,10 @@ impl App {
             true => (self.lift - reach).max(0.0),
             false => (self.lift + reach).min(1.0),
         };
+    }
+
+    pub fn set_panel(&mut self, panel: (u32, u32)) {
+        self.panel = panel;
     }
 
     pub fn layout(&self) -> Layout {
@@ -3137,11 +3176,13 @@ impl App {
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
                 clock: self.quick_clock_faces,
                 wallpaper: self.quick_wallpaper_faces,
-                gb_bezel: self.quick_gb_bezel_faces,
-                gbc_bezel: self.quick_gbc_bezel_faces,
                 faces: self.quick_menu_faces.as_ref(),
                 ground: self.menu_ground(),
                 palette: None,
+                gba_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gba)],
+                gb_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gb)],
+                gbc_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gbc)],
+                bezel: None,
                 over_game: false,
                 canvas: self.canvas(),
             }
@@ -3264,11 +3305,13 @@ impl App {
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
                 clock: None,
                 wallpaper: None,
-                gb_bezel: None,
-                gbc_bezel: None,
                 faces: self.quick_menu_faces.as_ref(),
                 ground: None,
                 palette: self.quick_palette_faces,
+                gba_bezel: None,
+                gb_bezel: None,
+                gbc_bezel: None,
+                bezel: self.quick_bezel_faces[bezel_slot(self.playing_platform())],
                 over_game: true,
                 canvas: self.canvas(),
             }
@@ -3290,10 +3333,7 @@ impl App {
         if let Some(menu) = self.game_menu {
             self.draw_game_menu(menu, out);
         }
-        match self.hud_area() {
-            Some(area) => self.hud.draw_within(self.canvas(), self.now(), area, out),
-            None => self.hud.draw(self.canvas(), self.now(), out),
-        }
+        self.hud.draw(self.canvas(), self.now(), out);
     }
 
     fn draw_sheet(&self, out: &mut Vec<Draw>) {
@@ -3929,6 +3969,8 @@ impl App {
                 self.close_game_menu();
                 match PowerChoice::ALL[index] {
                     PowerChoice::Restart => {
+                        self.remember_shelves();
+                        self.remember_shelf();
                         self.restarting = true;
                         self.act_at = self.now() + SHUTDOWN_SHOW_MS;
                         self.set_led(LedState::Off);
@@ -4300,6 +4342,7 @@ impl App {
         }
         self.close_game_menu();
         self.remember_shelves();
+        self.remember_shelf();
         self.powering_off = true;
         self.act_at = self.now() + SHUTDOWN_SHOW_MS;
         self.set_led(LedState::Off);
@@ -4742,6 +4785,7 @@ fn mark_of(cart: &Cart) -> String {
 
 fn startup_value(shelf: StartupScreen) -> QuickValue {
     match shelf {
+        StartupScreen::Last => QuickValue::Last,
         StartupScreen::Gba => QuickValue::Gba,
         StartupScreen::Gb => QuickValue::Gb,
         StartupScreen::Gbc => QuickValue::Gbc,
@@ -4853,5 +4897,13 @@ fn draw_menu_rows(
             tex,
             alpha: 1.0,
         });
+    }
+}
+
+fn bezel_slot(platform: Platform) -> usize {
+    match platform {
+        Platform::Gba => 0,
+        Platform::Gb => 1,
+        Platform::Gbc => 2,
     }
 }

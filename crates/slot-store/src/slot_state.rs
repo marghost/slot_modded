@@ -150,29 +150,30 @@ impl WallpaperPick {
     }
 }
 
-/// Which picture frames a Game Boy or Game Boy Color screen. `None` is the
-/// plain picture, and the default.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub enum BezelPick {
-    #[default]
-    Shipped,
     None,
+    Default,
+    #[default]
+    Ags102,
     File(String),
 }
 
 impl BezelPick {
     pub fn key(&self) -> String {
         match self {
-            BezelPick::Shipped => "shipped".to_string(),
             BezelPick::None => "none".to_string(),
+            BezelPick::Default => "default".to_string(),
+            BezelPick::Ags102 => "ags-102".to_string(),
             BezelPick::File(name) => name.clone(),
         }
     }
 
     pub fn label(&self) -> String {
         match self {
-            BezelPick::Shipped => "Shipped".to_string(),
             BezelPick::None => "None".to_string(),
+            BezelPick::Default => "Default".to_string(),
+            BezelPick::Ags102 => "AGS-102".to_string(),
             BezelPick::File(name) => name
                 .rsplit_once('.')
                 .map(|(stem, _)| stem)
@@ -183,8 +184,9 @@ impl BezelPick {
 
     pub fn parse(value: &str) -> BezelPick {
         match value {
-            "" | "shipped" => BezelPick::Shipped,
             "none" => BezelPick::None,
+            "default" | "shipped" => BezelPick::Default,
+            "" | "ags-102" => BezelPick::Ags102,
             other => BezelPick::File(other.to_string()),
         }
     }
@@ -220,16 +222,19 @@ pub struct SlotState {
     pub gb_palettes: bool,
     pub gb_palette: GbPalette,
     pub startup_screen: StartupScreen,
-    pub bezel_gb: BezelPick,
-    pub bezel_gbc: BezelPick,
     pub appearance: Appearance,
     pub wallpaper: WallpaperPick,
     pub wallpaper_tint: WallpaperTint,
     pub show_recents: bool,
     pub show_favorites: bool,
     pub show_titles: bool,
+    pub bezel_gba: BezelPick,
+    pub bezel_gb: BezelPick,
+    pub bezel_gbc: BezelPick,
     pub recents: Vec<Recent>,
     pub favorites: Vec<Recent>,
+    pub shelf: Option<String>,
+    pub shelf_cart: Option<Recent>,
 }
 
 impl SlotState {
@@ -315,6 +320,7 @@ impl Shader {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum StartupScreen {
     #[default]
+    Last,
     Gba,
     Gb,
     Gbc,
@@ -323,7 +329,8 @@ pub enum StartupScreen {
 }
 
 impl StartupScreen {
-    pub const ALL: [StartupScreen; 5] = [
+    pub const ALL: [StartupScreen; 6] = [
+        StartupScreen::Last,
         StartupScreen::Recents,
         StartupScreen::Favorites,
         StartupScreen::Gba,
@@ -333,6 +340,7 @@ impl StartupScreen {
 
     pub fn name(self) -> &'static str {
         match self {
+            StartupScreen::Last => "last",
             StartupScreen::Gba => "gba",
             StartupScreen::Gb => "gb",
             StartupScreen::Gbc => "gbc",
@@ -389,17 +397,20 @@ impl Default for SlotState {
             runahead: 0,
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
-            startup_screen: StartupScreen::Gba,
-            bezel_gb: BezelPick::Shipped,
-            bezel_gbc: BezelPick::Shipped,
+            startup_screen: StartupScreen::Last,
             appearance: Appearance::Dark,
             wallpaper: WallpaperPick::Default,
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
             show_favorites: true,
             show_titles: false,
+            bezel_gba: BezelPick::Ags102,
+            bezel_gb: BezelPick::Ags102,
+            bezel_gbc: BezelPick::Ags102,
             recents: Vec::new(),
             favorites: Vec::new(),
+            shelf: None,
+            shelf_cart: None,
         }
     }
 }
@@ -483,8 +494,6 @@ runahead={}
 gb_palettes={}
 gb_palette={}
 startup_screen={}
-bezel_gb={}
-bezel_gbc={}
 appearance={}
 wallpaper={}
 ",
@@ -517,8 +526,6 @@ wallpaper={}
         s.gb_palettes as u8,
         s.gb_palette.core_name(),
         s.startup_screen.name(),
-        s.bezel_gb.key(),
-        s.bezel_gbc.key(),
         s.appearance.name(),
         s.wallpaper.key()
     );
@@ -531,6 +538,18 @@ wallpaper={}
     text.push_str(&format!("show_recents={}\n", s.show_recents as u8));
     text.push_str(&format!("show_favorites={}\n", s.show_favorites as u8));
     text.push_str(&format!("show_titles={}\n", s.show_titles as u8));
+    text.push_str(&format!("bezel_gba={}\n", s.bezel_gba.key()));
+    text.push_str(&format!("bezel_gb={}\n", s.bezel_gb.key()));
+    text.push_str(&format!("bezel_gbc={}\n", s.bezel_gbc.key()));
+    text.push_str(&format!("shelf={}\n", s.shelf.as_deref().unwrap_or("")));
+    text.push_str(&format!(
+        "shelf_cart={}\n",
+        s.shelf_cart.as_ref().map_or(String::new(), |r| format!(
+            "{}/{}",
+            platform_key(r.platform),
+            r.stem
+        ))
+    ));
     atomic_write(&state_path(root), text.as_bytes())?;
     write_list(root, RECENTS_FILE, &s.recents)?;
     write_list(root, FAVORITES_FILE, &s.favorites)
@@ -566,8 +585,6 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut gb_palettes = None;
     let mut gb_palette = None;
     let mut startup_screen = None;
-    let mut bezel_gb = None;
-    let mut bezel_gbc = None;
     let mut appearance = None;
     let mut wallpaper = None;
     let mut wallpaper_tint = None;
@@ -575,6 +592,11 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut show_favorites = None;
     let mut show_titles = None;
     let mut recents: Vec<Recent> = Vec::new();
+    let mut bezel_gba = None;
+    let mut bezel_gb = None;
+    let mut bezel_gbc = None;
+    let mut shelf = None;
+    let mut shelf_cart = None;
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -610,8 +632,6 @@ fn parse(text: &str) -> Option<SlotState> {
             "gb_palettes" => gb_palettes = flag(value),
             "gb_palette" => gb_palette = GbPalette::parse(value),
             "startup_screen" => startup_screen = StartupScreen::parse(value),
-            "bezel_gb" => bezel_gb = Some(BezelPick::parse(value)),
-            "bezel_gbc" => bezel_gbc = Some(BezelPick::parse(value)),
             "appearance" => appearance = Appearance::parse(value),
             "wallpaper" => wallpaper = Some(WallpaperPick::parse(value)),
             "wallpaper_tint" => wallpaper_tint = WallpaperTint::parse(value),
@@ -619,6 +639,11 @@ fn parse(text: &str) -> Option<SlotState> {
             "show_favorites" => show_favorites = flag(value),
             "show_titles" => show_titles = flag(value),
             "recent" => recents.extend(recent_value(value)),
+            "bezel_gba" => bezel_gba = Some(BezelPick::parse(value)),
+            "bezel_gb" => bezel_gb = Some(BezelPick::parse(value)),
+            "bezel_gbc" => bezel_gbc = Some(BezelPick::parse(value)),
+            "shelf" => shelf = Some(value.to_string()).filter(|v| !v.is_empty()),
+            "shelf_cart" => shelf_cart = recent_value(value),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             "shader_gbc" => shader_gbc = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
@@ -662,8 +687,6 @@ fn parse(text: &str) -> Option<SlotState> {
         gb_palettes: gb_palettes.unwrap_or(fallback.gb_palettes),
         gb_palette: gb_palette.unwrap_or(fallback.gb_palette),
         startup_screen: startup_screen.unwrap_or(fallback.startup_screen),
-        bezel_gb: bezel_gb.unwrap_or(fallback.bezel_gb),
-        bezel_gbc: bezel_gbc.unwrap_or(fallback.bezel_gbc),
         appearance: appearance.unwrap_or(fallback.appearance),
         wallpaper: wallpaper.unwrap_or(fallback.wallpaper),
         wallpaper_tint: wallpaper_tint.unwrap_or(fallback.wallpaper_tint),
@@ -671,7 +694,12 @@ fn parse(text: &str) -> Option<SlotState> {
         show_favorites: show_favorites.unwrap_or(fallback.show_favorites),
         show_titles: show_titles.unwrap_or(fallback.show_titles),
         recents,
+        bezel_gba: bezel_gba.unwrap_or(fallback.bezel_gba),
+        bezel_gb: bezel_gb.unwrap_or(fallback.bezel_gb),
+        bezel_gbc: bezel_gbc.unwrap_or(fallback.bezel_gbc),
         favorites: Vec::new(),
+        shelf,
+        shelf_cart,
     })
 }
 

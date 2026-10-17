@@ -6,6 +6,8 @@ use slot_gfx::{Canvas, Draw, TexId, OUT_H, OUT_W};
 use crate::art;
 
 const DEFAULT_PNG: &[u8] = include_bytes!("../../../assets/background_default.png");
+const BEZEL_GB_PNG: &[u8] = include_bytes!("../../../assets/bezel_gb.png");
+const BEZEL_GBC_PNG: &[u8] = include_bytes!("../../../assets/bezel_gbc.png");
 const BLUR_PNG: &[u8] = include_bytes!("../../../assets/background_default_blur.png");
 
 const SCRIM: f32 = 0.62;
@@ -16,6 +18,15 @@ pub fn wallpaper_face(path: &Path) -> Option<Vec<u8>> {
 
 pub fn bezel_face(path: &Path, w: u32, h: u32) -> Option<Vec<u8>> {
     art::cover(path, w, h)
+}
+
+pub fn game_bezel_face(path: &Path) -> Option<Vec<u8>> {
+    art::cover(path, OUT_W, OUT_H)
+}
+
+pub fn default_game_bezel_face(colour: bool) -> Option<Vec<u8>> {
+    let png = if colour { BEZEL_GBC_PNG } else { BEZEL_GB_PNG };
+    art::cover_bytes(png, OUT_W, OUT_H)
 }
 
 /// The carousel ground, scaled to cover the whole screen, including behind the footer.

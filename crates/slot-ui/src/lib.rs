@@ -15,7 +15,6 @@ mod clock;
 mod draw;
 mod favorite;
 mod footer;
-mod game_bezel;
 mod hud;
 mod icon;
 mod link_art;
@@ -35,7 +34,8 @@ pub mod text;
 mod toast;
 
 pub use backdrop::{
-    bezel_face, blur_background, default_background, draw_backdrop, draw_ground, wallpaper_face,
+    bezel_face, blur_background, default_background, default_game_bezel_face, draw_backdrop,
+    draw_ground, game_bezel_face, wallpaper_face,
 };
 pub use barcode::{code39, CODE39_NARROW, CODE39_WIDE};
 pub use battery::{battery_badge_face, draw_gauge, level_colour, BOLT_PX, GAUGE_H, GAUGE_W, WALL};
@@ -61,7 +61,6 @@ pub use clock::{clock_label, date_time_text, hhmm, set_clock_hint_face, ClockPic
 pub use draw::{Canvas, Draw, Layout, TexId, OUT_H, OUT_W};
 pub use favorite::{favorite_face, favorite_heart_face, FAVORITE_D, FAVORITE_FILE, FAVORITE_PX};
 pub use footer::{draw_corners, draw_footer, Printed, FOOTER_Y};
-pub use game_bezel::{game_bezel_face, GameBezelFace};
 pub use hud::{
     badge_at, ff_badge, footer_ink, FfState, Hud, HudKind, LinkBadge, Millis, ALARM_BAND_H,
     HUD_ICON_PX, HUD_INK, HUD_MS, LINK_HOST_INK, LINK_JOIN_INK, PLATE_H,

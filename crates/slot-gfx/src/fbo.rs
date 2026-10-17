@@ -38,15 +38,8 @@ pub struct Compositor {
     bezel: Option<gl::types::GLuint>,
     overlay: Option<(gl::types::GLuint, u32, u32)>,
     game_bezel: Option<TexId>,
-    panel_game_bezel: Option<PanelBezel>,
+    sp_frame: bool,
     turn: Option<Turn>,
-}
-
-#[derive(Copy, Clone)]
-struct PanelBezel {
-    tex: TexId,
-    w: u32,
-    h: u32,
 }
 
 impl Compositor {
@@ -114,7 +107,7 @@ impl Compositor {
                 bezel: None,
                 overlay: None,
                 game_bezel: None,
-                panel_game_bezel: None,
+                sp_frame: true,
                 turn: None,
             })
         }
@@ -157,20 +150,7 @@ impl Compositor {
                     self.sprites.draw(&items[from..i], &self.quad);
                     self.in_game_rect(|c| {
                         c.game.draw(&c.quad);
-                        if let Some(tex) = c.game_bezel {
-                            let (x, y, w, h) = c.game.frame();
-                            c.sprites.draw(
-                                &[Draw::Tex {
-                                    x,
-                                    y,
-                                    w,
-                                    h,
-                                    tex,
-                                    alpha: 1.0,
-                                }],
-                                &c.quad,
-                            );
-                        }
+                        c.draw_game_bezel();
                     });
                 }
                 Draw::Shot { tex } => {
@@ -210,17 +190,33 @@ impl Compositor {
         self.game.set_picture(rect);
     }
 
-    pub fn set_game_bezel(&mut self, overlay: Option<(TexId, u32, u32, [f32; 4])>) {
-        self.game_bezel = None;
-        self.panel_game_bezel = None;
-        let Some((tex, w, h, _)) = overlay else {
+    pub fn set_game_bezel(&mut self, tex: Option<TexId>) {
+        self.game_bezel = tex;
+    }
+
+    pub fn set_sp_frame(&mut self, on: bool) {
+        self.sp_frame = on;
+    }
+
+    fn draw_game_bezel(&mut self) {
+        let Some(tex) = self.game_bezel else {
             return;
         };
-        if self.window == (w, h) && (w, h) != (OUT_W, OUT_H) {
-            self.panel_game_bezel = Some(PanelBezel { tex, w, h });
-            return;
-        }
-        self.game_bezel = Some(tex);
+        let (x, y, w, h) = self.game.frame();
+        self.sprites.set_target(Canvas::FRAMED);
+        self.sprites.draw(
+            &[Draw::Tex {
+                x,
+                y,
+                w,
+                h,
+                tex,
+                alpha: 1.0,
+            }],
+            &self.quad,
+        );
+        self.sprites
+            .set_target(Canvas::of(self.layout, self.window));
     }
 
     pub fn set_paper(&mut self, size: u32, gray: &[u8]) {
@@ -460,10 +456,15 @@ impl Compositor {
             return;
         }
         let framed = crate::bezel::framed(window);
-        let (x, y, w, h) = blit_rect(window, self.shake);
+        let (x, mut y, w, h) = blit_rect(window, self.shake);
+        if framed && !self.sp_frame {
+            y = (window.1 as i32 - h) / 2;
+        }
         self.blit_part(x, y, w, h, [0.0, 0.0, 1.0, 1.0]);
-        self.draw_panel_game_bezel(window);
-        let Some(bezel) = self.bezel.filter(|_| framed && self.slide > 0.0) else {
+        let Some(bezel) = self
+            .bezel
+            .filter(|_| framed && self.sp_frame && self.slide > 0.0)
+        else {
             return;
         };
         let drop = crate::bezel::lifted_rect(window, self.slide).1;
@@ -472,13 +473,11 @@ impl Compositor {
             gl::UseProgram(self.bezel_prog);
             gl::Uniform3f(self.u_bezel_gain, self.gain[0], self.gain[1], self.gain[2]);
             gl::Uniform1f(self.u_bezel_alpha, 1.0);
+            gl::BindTexture(gl::TEXTURE_2D, bezel);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
-        if !covers_panel(self.panel_game_bezel.map(|b| (b.w, b.h)), window) {
-            unsafe { gl::BindTexture(gl::TEXTURE_2D, bezel) };
-            self.quad.draw();
-        }
+        self.quad.draw();
         if let Some((tex, w, h)) = self.overlay {
             let scale = window.0 as f32 / OUT_W as f32;
             let (w, h) = (
@@ -494,29 +493,6 @@ impl Compositor {
             self.quad.draw();
         }
         unsafe { gl::Disable(gl::BLEND) };
-    }
-
-    fn draw_panel_game_bezel(&mut self, window: (u32, u32)) {
-        let Some(overlay) = self.panel_game_bezel else {
-            return;
-        };
-        if !covers_panel(Some((overlay.w, overlay.h)), window) {
-            return;
-        }
-        let (x, y, w, h) = panel_bezel_rect(window, self.shake, self.screen, overlay.w, overlay.h);
-        unsafe { gl::Viewport(0, 0, window.0 as i32, window.1 as i32) };
-        self.sprites.draw_in(
-            window,
-            &[Draw::Tex {
-                x,
-                y,
-                w,
-                h,
-                tex: overlay.tex,
-                alpha: 1.0,
-            }],
-            &self.quad,
-        );
     }
 }
 
@@ -546,7 +522,10 @@ impl Compositor {
         let (w, h) = canvas_size(self.window);
         self.game
             .set_fbo_scale(w as f32 / OUT_W as f32, h as f32 / OUT_H as f32);
-        let y = self.size.1 - h;
+        let y = match self.sp_frame {
+            true => self.size.1 - h,
+            false => (self.size.1 - h) / 2,
+        };
         self.game.set_origin(0.0, y as f32);
         unsafe { gl::Viewport(0, y as i32, w as i32, h as i32) };
         draw(self);
@@ -565,34 +544,6 @@ impl Compositor {
         }
         self.quad.draw();
     }
-}
-
-fn covers_panel(game_bezel: Option<(u32, u32)>, window: (u32, u32)) -> bool {
-    game_bezel == Some(window)
-}
-
-/// The game bezel in top-left window pixels, collapsed the same way as the picture.
-/// At full power it is the whole frame. While the picture opens or closes it
-/// shrinks toward the picture's centre.
-fn panel_bezel_rect(
-    window: (u32, u32),
-    shake: f32,
-    screen: f32,
-    image_w: u32,
-    image_h: u32,
-) -> (f32, f32, f32, f32) {
-    let (bx, by, bw, bh) = blit_rect(window, shake);
-    let width = crate::power::screen_width(screen);
-    let height = crate::power::screen_scale(screen);
-    let cx = bx as f32 + bw as f32 / 2.0;
-    let top = window.1 as f32 - (by as f32 + bh as f32);
-    let cy = top + bh as f32 / 2.0;
-    (
-        cx * (1.0 - width),
-        cy * (1.0 - height),
-        image_w as f32 * width,
-        image_h as f32 * height,
-    )
 }
 
 pub fn canvas_size(window: (u32, u32)) -> (u32, u32) {
@@ -626,44 +577,5 @@ impl Drop for Compositor {
                 }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{covers_panel, panel_bezel_rect};
-
-    #[test]
-    fn a_panel_sized_game_bezel_takes_the_place_of_the_sp_frame() {
-        assert!(covers_panel(Some((640, 480)), (640, 480)));
-        assert!(
-            !covers_panel(None, (640, 480)),
-            "no game bezel hid the SP frame"
-        );
-        assert!(
-            !covers_panel(Some((720, 480)), (640, 480)),
-            "a canvas-sized bezel hid the SP frame"
-        );
-    }
-
-    #[test]
-    fn a_full_screen_bezel_covers_the_panel_and_a_half_open_one_shrinks_toward_the_picture() {
-        let full = panel_bezel_rect((640, 480), 0.0, 1.0, 640, 480);
-        assert_eq!(full, (0.0, 0.0, 640.0, 480.0));
-        let (x, y, w, h) = panel_bezel_rect((640, 480), 0.0, 0.0, 640, 480);
-        assert!(
-            h < 480.0 && w < 640.0,
-            "closed bezel is still full size: {w}x{h}"
-        );
-        assert!(
-            y > 0.0 && x > 0.0,
-            "closed bezel stays in the corner at {x},{y}"
-        );
-        let mid = y + h / 2.0;
-        let open_mid = full.1 + full.3 / 2.0;
-        assert!(
-            (mid - open_mid).abs() > 1.0,
-            "it collapsed toward the panel centre {open_mid}, not the picture"
-        );
     }
 }

@@ -8,14 +8,15 @@ use slot_power::{Battery, Platform, Power};
 use slot_store::{format_stamp, BezelPick, Platform as Console};
 use slot_ui::{
     arrows_hint_coloured, arrows_hint_face, badge_face, battery_badge_face, bezel_face,
-    cart_shadow, cheat_sheet_face, chip_face, chip_shadow_face, date_time_text, favorite_face,
-    footer_ink, gb_cart_shadow, hhmm, hint_coloured, hint_face, icon_face, menu_face,
-    modded_badge_face, photo_face, quick_caret_face, quick_label_face, quick_legend_faces,
-    quick_pointer_face, quick_value_face, rebuild_count_face, rebuild_title_face,
-    set_clock_hint_face, slot_back, slot_back_light, slot_front, slot_front_light, socket_face,
-    sticker_face, title_face, toast_face, version_face, wallpaper_face, word_ink, CartFace,
-    GameBezelFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue,
-    RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
+    cart_shadow, cheat_sheet_face, chip_face, chip_shadow_face, date_time_text,
+    default_game_bezel_face, favorite_face, footer_ink, game_bezel_face, gb_cart_shadow, hhmm,
+    hint_coloured, hint_face, icon_face, menu_face, modded_badge_face, photo_face,
+    quick_caret_face, quick_label_face, quick_legend_faces, quick_pointer_face, quick_value_face,
+    rebuild_count_face, rebuild_title_face, set_clock_hint_face, slot_back, slot_back_light,
+    slot_front, slot_front_light, socket_face, sticker_face, title_face, toast_face, version_face,
+    wallpaper_face, word_ink, CartFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces,
+    QuickRow, QuickValue, RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX,
+    HUD_ICON_PX, HUD_INK, LEGEND,
 };
 
 use crate::app::{App, LinkRow, Phase};
@@ -57,9 +58,9 @@ pub struct Frontend {
     cheat_sheet: CheatSheetFace,
     quick_clock: QuickClock,
     battery_badge: Option<Battery>,
-    game_bezel: BezelSync,
     quick_palette: QuickPalette,
     wallpaper: WallpaperSync,
+    game_bezel: BezelSync,
     look: Option<ShelfLook>,
     link_shot: Option<TexId>,
     link_shot_size: (u32, u32),
@@ -88,22 +89,18 @@ struct CheatSheetFace {
 }
 
 #[derive(Default)]
-struct BezelSync {
-    image: String,
-    tex: Option<TexId>,
-    gb: String,
-    gb_dim: Option<TexId>,
-    gb_lit: Option<TexId>,
-    gbc: String,
-    gbc_dim: Option<TexId>,
-    gbc_lit: Option<TexId>,
-}
-
-#[derive(Default)]
 struct QuickPalette {
     dim: Option<TexId>,
     lit: Option<TexId>,
     shown: &'static str,
+}
+
+#[derive(Default)]
+struct BezelSync {
+    tex: Option<TexId>,
+    image: Option<(Console, BezelPick)>,
+    labels: [String; 3],
+    faces: [(Option<TexId>, Option<TexId>); 3],
 }
 
 #[derive(Default)]
@@ -191,9 +188,9 @@ impl Frontend {
             cheat_sheet: CheatSheetFace::default(),
             quick_clock: QuickClock::default(),
             battery_badge: None,
-            game_bezel: BezelSync::default(),
             quick_palette: QuickPalette::default(),
             wallpaper: WallpaperSync::default(),
+            game_bezel: BezelSync::default(),
             look: None,
             link_shot: None,
             link_shot_size: (0, 0),
@@ -474,7 +471,6 @@ impl Frontend {
     pub fn render(&mut self, compositor: &mut Compositor, window: (u32, u32)) {
         self.session.app_mut().set_panel(window);
         compositor.fit(window);
-        self.session.app_mut().set_panel(window);
         self.compose(compositor);
         compositor.end_frame(window);
     }
@@ -528,8 +524,6 @@ impl Frontend {
         compositor.set_shake(self.session.app().screen_shake());
         compositor.set_screen_power(self.session.app().screen_power());
         compositor.set_overlay_slide(self.session.app().overlay_slide());
-        sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
-        compositor.set_game_bezel(self.session.app().shown_game_bezel());
         compositor.set_game_source_rect(self.session.app().source_rect());
         self.grab_link_shot(compositor);
         compositor.begin_frame(self.session.app().layout());
@@ -548,6 +542,9 @@ impl Frontend {
         sync_quick_clock(self.session.app_mut(), compositor, &mut self.quick_clock);
         sync_quick_palette(self.session.app_mut(), compositor, &mut self.quick_palette);
         sync_wallpaper(self.session.app_mut(), compositor, &mut self.wallpaper);
+        sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
+        compositor.set_game_bezel(self.session.app().shown_game_bezel());
+        compositor.set_sp_frame(self.session.app().sp_frame());
         sync_core_picker(
             self.session.app_mut(),
             compositor,
@@ -978,95 +975,6 @@ fn sync_battery_badge(app: &App, compositor: &mut Compositor, shown: &mut Option
     }
 }
 
-fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut BezelSync) {
-    let platform = app.platform();
-    let width = app.panel_width();
-    let pick = match platform {
-        Console::Gb | Console::Gbc => app.resolved_bezel(platform),
-        Console::Gba => BezelPick::None,
-    };
-    let key = format!("{width}:{}:{}", platform.dir_name(), pick.key());
-    if state.image != key {
-        state.image = key;
-        match pick {
-            BezelPick::File(name) => {
-                let face = app
-                    .root()
-                    .map(|root| crate::bezel::path(root, platform, &name, width))
-                    .and_then(|path| slot_ui::game_bezel_face(&path));
-                match face {
-                    Some(face) => {
-                        let id = bezel_tex(compositor, &mut state.tex, &face);
-                        app.set_game_bezel(Some(id), (face.w, face.h), Some(face.hole));
-                    }
-                    None => app.set_game_bezel(None, (0, 0), None),
-                }
-            }
-            BezelPick::None | BezelPick::Shipped => app.set_game_bezel(None, (0, 0), None),
-        }
-    }
-    if app.quick_menu().is_none() {
-        return;
-    }
-    sync_bezel_label(
-        app,
-        compositor,
-        Console::Gb,
-        &mut state.gb,
-        &mut state.gb_dim,
-        &mut state.gb_lit,
-    );
-    sync_bezel_label(
-        app,
-        compositor,
-        Console::Gbc,
-        &mut state.gbc,
-        &mut state.gbc_dim,
-        &mut state.gbc_lit,
-    );
-}
-
-fn bezel_tex(compositor: &mut Compositor, slot: &mut Option<TexId>, face: &GameBezelFace) -> TexId {
-    match *slot {
-        Some(id) => {
-            compositor.update_texture(id, face.w, face.h, &face.rgba);
-            id
-        }
-        None => {
-            let id = compositor.create_texture(face.w, face.h, &face.rgba);
-            *slot = Some(id);
-            id
-        }
-    }
-}
-
-fn sync_bezel_label(
-    app: &mut App,
-    compositor: &mut Compositor,
-    platform: Console,
-    shown: &mut String,
-    dim_slot: &mut Option<TexId>,
-    lit_slot: &mut Option<TexId>,
-) {
-    let label = app.resolved_bezel(platform).label();
-    if *shown == label {
-        return;
-    }
-    let (dim, lit) = (
-        quick_value_face(&label, false),
-        quick_value_face(&label, true),
-    );
-    let (dim_size, lit_size) = ((dim.w, dim.h), (lit.w, lit.h));
-    let dim = upload(compositor, dim_slot, dim);
-    let lit = upload(compositor, lit_slot, lit);
-    app.set_quick_bezel_faces(
-        platform,
-        (dim, dim_size.0, dim_size.1),
-        (lit, lit_size.0, lit_size.1),
-    );
-    *shown = label;
-}
-
 fn sync_cheat_sheet(app: &mut App, compositor: &mut Compositor, state: &mut CheatSheetFace) {
     let Some(page) = app.cheat_sheet_page() else {
         return;
@@ -1078,6 +986,64 @@ fn sync_cheat_sheet(app: &mut App, compositor: &mut Compositor, state: &mut Chea
     state.page = Some((page, width));
     let id = upload(compositor, &mut state.tex, cheat_sheet_face(page, width));
     app.set_cheat_sheet_face(id);
+}
+
+fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut BezelSync) {
+    let platform = app.playing_platform();
+    let pick = app.resolved_bezel(platform);
+    let shown = (platform, pick);
+    if state.image.as_ref() != Some(&shown) {
+        let rgba = match &shown.1 {
+            BezelPick::None | BezelPick::Ags102 => None,
+            BezelPick::Default => default_game_bezel_face(platform == Console::Gbc),
+            BezelPick::File(name) => app
+                .root()
+                .map(|root| {
+                    root.join(crate::bezel::GAME_BEZELS)
+                        .join(platform.dir_name())
+                        .join(name)
+                })
+                .and_then(|path| game_bezel_face(&path)),
+        };
+        let tex = rgba.map(|rgba| match state.tex {
+            Some(id) => {
+                compositor.update_texture(id, OUT_W, OUT_H, &rgba);
+                id
+            }
+            None => {
+                let id = compositor.create_texture(OUT_W, OUT_H, &rgba);
+                state.tex = Some(id);
+                id
+            }
+        });
+        app.set_game_bezel(tex);
+        state.image = Some(shown);
+    }
+    if app.quick_menu().is_none() && app.in_game_menu().is_none() {
+        return;
+    }
+    for (at, platform) in [Console::Gba, Console::Gb, Console::Gbc]
+        .into_iter()
+        .enumerate()
+    {
+        let label = app.resolved_bezel(platform).label();
+        if state.labels[at] == label {
+            continue;
+        }
+        let (dim, lit) = (
+            quick_value_face(&label, false),
+            quick_value_face(&label, true),
+        );
+        let (dim_size, lit_size) = ((dim.w, dim.h), (lit.w, lit.h));
+        let dim = upload(compositor, &mut state.faces[at].0, dim);
+        let lit = upload(compositor, &mut state.faces[at].1, lit);
+        app.set_quick_bezel_faces(
+            platform,
+            (dim, dim_size.0, dim_size.1),
+            (lit, lit_size.0, lit_size.1),
+        );
+        state.labels[at] = label;
+    }
 }
 
 fn sync_wallpaper(app: &mut App, compositor: &mut Compositor, state: &mut WallpaperSync) {

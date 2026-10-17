@@ -3,6 +3,23 @@
 Fork versions read `v<slot version>-mod.<feature>.<update>`: the first mod number goes up with new fork features, the
 second with upstream merges, fixes and small changes.
 
+## v1.7.0-mod.4.1 (marghost fork, not released yet)
+
+Changes made in this fork since v1.6.0-mod.4.0 (2026-10-15). Written by Claude Opus (AI), see the
+[Fork AI Disclosure](README.md#fork-ai-disclosure):
+
+- Merged the original slot's [1.7.0 release](https://github.com/BrandonKowalski/slot/releases/tag/v1.7.0) (main at
+  34ac380). Its changes are listed under 1.7.0 below.
+- Bezels are now the original's, by Markus Maribu ([slot #77](https://github.com/BrandonKowalski/slot/issues/77)):
+  MENU → Screen → Game Boy Advance, Game Boy Color or Game Boy → **Bezel**, with PNGs in `Bezels/GBA`, `Bezels/GB` and
+  `Bezels/GBC`. The fork's own bezel code and its RG35XXSP-fitted bezels are gone. A `bezel_gb=shipped` or
+  `bezel_gbc=shipped` saved by an older fork version now reads as the original's Default bezel.
+- Startup Screen has a new first choice, **Last Used**, now the default: slot opens on the shelf and game you were on
+  at power off, as the original 1.7.0 does. A choice you saved before is kept. Each shelf still opens on its own last
+  game.
+- The battery badge shows only with the GBA SP frame. With a GB or GBC bezel the SP frame is not drawn, so neither is
+  the badge.
+
 ## [v1.6.0-mod.4.0](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.4.0) (marghost fork)
 
 Changes made in this fork since v1.6.0-mod.3.1 (2026-10-15). Written by Claude Opus (AI), see the
@@ -111,10 +128,35 @@ Changes made in this fork, on top of slot 1.6.0 (2026-10-12). Written by Claude 
   MENU goes back to the menu.
 - START in the save state switcher opens the Button Cheat Sheet on its In Game page; B goes back to the switcher. Its
   bottom bar shows "START Help" left of "A Load", except while the undo hint is offered.
+## [1.7.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.7.0)
+
+- The slot, carts and shelf now have a skeuomorphic effect, with light and dark themes and bundled wallpapers. Huge thanks to Markus for this amazing work! (#74, @MarkusMaribu)
+- An in-game menu: tap MENU to pause the game behind it. A double tap still goes straight to States.
+- Favorites: Y stars a cart onto its own shelf. (#89, @diluno)
+- A Recents shelf of the last 10 games, switched on from Settings -> General.
+- slot remembers the shelf and cart at power off and boots back onto them. (#53)
+- Per-platform bezels. Markus again! (#77, @MarkusMaribu)
+- On 4:3 panels the shelf fills the screen. (#81, @diluno)
+- Game Titles on the General page fades the shelf name into the selected game's name. (#84)
+- A 1 frame run-ahead setting for GBA games on mGBA. (#56, @454135431515)
+- Wallpaper Tint darkens your own wallpaper on the shelf.
+- GBA, GB and GBC each get their own Shader and Color Correction rows. (#83, @paulocoe-creator)
+- LCD3x is offered for GB and GBC games. (#88, @paulocoe-creator)
+- Game Boy stretch now properly only widens the picture.
+- The backlight steps follow a curve, so the low-end goes dimmer. (#54, @flo333)
+- Holding a direction repeats it in menus, the clock and the shelf letter jump, but never in play.
+- RG34XX uses its own chords for brightness and the menu display. (#85, @paulocoe-creator)
+- The RG28XX picture is turned the way BaseOS says.
+- Restart no longer hangs on a black screen: the WiFi driver is unloaded first.
+- Muted play keeps its frame rate. (#51, @flo333)
+- Fast-forward no longer stutters on frames that take longer than average. (#70)
+- gpSP no longer crashes when a crowded boot left its JIT cache unmapped.
+- Core options follow the platform that is playing. (#82)
+- Card logs moved into a `Logs` folder, and the session log rotates. Card alarms are logged too.
 
 ## [1.6.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.6.0)
 
-- Runs on the RG28XX: its panel is mounted portrait, so slot turns the picture onto it. (#35)
+- Runs on the RG28XX: its panel is mounted portrait, so slot turns the picture onto it. (#35, @GamerAnim)
 - Pokémon Pinball: Ruby & Sapphire rumble. mGBA now sees the game's Game Boy Player check. You still need to turn rumble on in game settings. (#25)
 - A red alarm shows when the SD card turns read-only or a save fails to write.
 - A new shortcut for mute: SELECT + VOL+ / VOL-. The 34XX has a fake volume wheel so VOL+ + VOL- isn't possible. (#39)

@@ -118,7 +118,7 @@ fn recents_ignore_the_letter_jump() {
     let d = tmp_root_with_carts(&["Alpha", "Beta"]);
     std::fs::create_dir_all(d.path().join("Config")).unwrap();
     with_recents(&d, "gba/Alpha\ngba/Beta\n");
-    let mut a = boot(d.path());
+    let mut a = boot_with_startup(&d, StartupScreen::Gba);
     press(&mut a, Btn::L1);
     assert_eq!(a.shelf_kind(), Rack::Recents);
     assert_eq!(selected(&a).1, "Alpha");
@@ -165,6 +165,7 @@ fn favorites_and_recents_come_back_after_a_restart() {
     let d = tmp_root_with_carts(&["Alpha", "Beta"]);
     let mut s = read_slot_state(d.path());
     s.show_recents = true;
+    s.startup_screen = StartupScreen::Gba;
     write_slot_state(d.path(), &s).unwrap();
     {
         let mut a = boot(d.path());
@@ -262,21 +263,18 @@ fn the_startup_screen_row_cycles_and_saves() {
     assert_eq!(a.quick_menu(), Some(QuickRow::StartupScreen));
     assert_eq!(
         a.quick_value(QuickRow::StartupScreen),
-        Some(QuickValue::Gba)
+        Some(QuickValue::Last)
     );
     press(&mut a, Btn::Right);
-    assert_eq!(read_slot_state(d.path()).startup_screen, StartupScreen::Gb);
-    for _ in 0..3 {
-        press(&mut a, Btn::Left);
-    }
-    assert_eq!(
-        a.quick_value(QuickRow::StartupScreen),
-        Some(QuickValue::Recents)
-    );
     assert_eq!(
         read_slot_state(d.path()).startup_screen,
         StartupScreen::Recents
     );
+    for _ in 0..3 {
+        press(&mut a, Btn::Left);
+    }
+    assert_eq!(a.quick_value(QuickRow::StartupScreen), Some(QuickValue::Gb));
+    assert_eq!(read_slot_state(d.path()).startup_screen, StartupScreen::Gb);
 }
 
 fn resume_with_startup(d: &tempfile::TempDir, start: StartupScreen, cart: &str) -> App {
@@ -343,7 +341,7 @@ fn a_game_started_from_recents_keeps_its_header_for_link_play() {
     write_retail_header(&d, "Emerald", "POKEMON EMER", "BPEE");
     std::fs::create_dir_all(d.path().join("Config")).unwrap();
     with_recents(&d, "gba/Alpha\ngba/Emerald\n");
-    let mut a = boot(d.path());
+    let mut a = boot_with_startup(&d, StartupScreen::Gba);
     press(&mut a, Btn::L1);
     assert_eq!(a.shelf_kind(), Rack::Recents);
     press(&mut a, Btn::Right);
@@ -358,7 +356,7 @@ fn recents_open_on_the_game_just_played() {
     let d = tmp_root_with_carts(&["Alpha", "Beta", "Gamma"]);
     std::fs::create_dir_all(d.path().join("Config")).unwrap();
     with_recents(&d, "gba/Alpha\ngba/Beta\n");
-    let mut a = boot(d.path());
+    let mut a = boot_with_startup(&d, StartupScreen::Gba);
     press(&mut a, Btn::L1);
     assert_eq!(a.shelf_kind(), Rack::Recents);
     press(&mut a, Btn::Right);
