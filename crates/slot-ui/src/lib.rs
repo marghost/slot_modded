@@ -19,6 +19,7 @@ mod hud;
 mod icon;
 mod link_art;
 mod modded;
+mod panel_bezel;
 mod plate;
 mod polaroids;
 mod power_menu;
@@ -74,6 +75,9 @@ pub use link_art::{
 pub use modded::{
     draw_modded_badge, modded_badge_face, version_face, BADGE_H, BADGE_W, MODDED_LINK, MODDED_TAG,
     MODDED_VERSION,
+};
+pub use panel_bezel::{
+    classic_bezel_face, panel_band, panel_bezel_face, BEZEL_PANEL_H, BEZEL_PANEL_W,
 };
 pub use plate::{
     arrows_hint_coloured, arrows_hint_face, arrows_hint_width, cap_width, centred_hints,

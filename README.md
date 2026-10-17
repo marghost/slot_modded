@@ -17,10 +17,11 @@ An **unofficial fork** of [slot](https://github.com/BrandonKowalski/slot) by Bra
 
 Some features are adapted from other slot forks and pull requests: [slot.advance](https://github.com/suprsomething/slot.advance)
 by suprsomething (battery warnings, standby, favorite heart), [snowslots](https://github.com/chiyuki0325/snowslots) by
-chiyuki0325 (fast-forward pitch), [jgraving/slot](https://github.com/jgraving/slot) by jgraving (link play from the Favorites and Recents shelves)
-and [stevolarn/slot](https://github.com/stevolarn/slot) (faster scrolling). Thank you!
+chiyuki0325 (fast-forward pitch), [jgraving/slot](https://github.com/jgraving/slot) by jgraving (link play from the Favorites and Recents shelves),
+[stevolarn/slot](https://github.com/stevolarn/slot) (faster scrolling), and the Classic bezels are mugwomp93's from
+[knulli-bezels](https://github.com/chrizzo-hb/knulli-bezels) by chrizzo-hb. Thank you!
 
-**Tuned and tested on the Anbernic RG35XXSP**: the battery badge in its SP frame, and every feature checked on the
+**Tuned and tested on the Anbernic RG35XXSP**: bezels that fill its 640x480 screen, and every feature checked on the
 device. The other handhelds slot supports should work as before, but this
 fork is not tested on them.
 
@@ -43,6 +44,7 @@ Everything technical lives in the wiki, one page per topic all the documentation
 | Feature | How to get there |
 |---|---|
 | **Battery %** in game | Always on, any game and any console, bottom-right of the bezel (4:3 screens like the RG35XXSP are compatible). Green → red as it drains. |
+| **Classic GB / GBC bezels** | Settings: MENU → Screen → Game Boy / Game Boy Color → **Bezel** → Classic (default on 4:3 screens). Full-screen 640x480, no black bars; other bezels fill the bars too. Art by mugwomp93 |
 | **Button Cheat Sheet** | Settings: MENU → **Button Cheat Sheet**.  This will tell you all the hotkeys! |
 | **Button Cheat Sheet** in game | In-game menu: tap MENU → **Button Cheat Sheet**, or in the save state switcher (double-tap MENU) → **START** (Button Help) |
 | **Favorite heart** | A pixel heart marks your favorite games on the cartridge, and a banner confirms when **Y** adds or removes one. Your own icon: put your PNG at `System/favorite.png` |
@@ -95,38 +97,43 @@ short:
 # Screenshots
 
 <p align="center">
-<img src=".github/resources/screenshots/fork-favorite-page.png" width="60%" alt="The Favorites shelf: a pixel heart on the top-left corner of a GBA, a GB and a GBC cart, and FAVORITES on the slot"><br>
+<img src=".github/resources/screenshots/fork-classic-gb.png" width="60%" alt="A Game Boy game with the Classic bezel: POWER light on the left, the GAME BOY logo and stripes on the right, the battery badge bottom-right, no black bars"><br>
+<em>The Classic Game Boy bezel, made for the RG35XXSP's 640x480 screen, with the battery badge.</em>
+</p>
+
+<p align="center">
+<img src=".github/resources/screenshots/fork-classic-gbc.png" width="60%" alt="A Game Boy Color game with the Classic bezel: POWER light on the left, the GAME BOY COLOR logo on the right, the battery badge bottom-right"><br>
+<em>The Classic Game Boy Color bezel.</em>
+</p>
+
+<p align="center">
+<img src=".github/resources/screenshots/fork-favorite-page.png" width="60%" alt="The Favorites shelf: a pixel heart on the top-left corner of a GBA, a GB and a GBC cart"><br>
 <em>The Favorites shelf, with a heart on each favorite.</em>
 </p>
 
 <p align="center">
-<img src=".github/resources/screenshots/fork-recent-page.png" width="60%" alt="The Recents shelf: the last game played in the middle, with its heart, and RECENTS on the slot"><br>
-<em>The Recents shelf: your last games, newest first.</em>
+<img src=".github/resources/screenshots/fork-settings-cheat-sheet.png" width="60%" alt="The settings menu with the Button Cheat Sheet row selected"><br>
+<em>The settings menu, with the Button Cheat Sheet.</em>
 </p>
 
 <p align="center">
-<img src=".github/resources/screenshots/fork-settings-cheat-sheet.png" width="60%" alt="The settings menu with the new Startup Screen row set to Favorites, and the Button Cheat Sheet row selected"><br>
-<em>The settings menu, with Startup Screen and the Button Cheat Sheet.</em>
-</p>
-
-<p align="center">
-<img src=".github/resources/screenshots/fork-startingpage.png" width="60%" alt="The settings menu with the Startup Screen row selected and set to Recents"><br>
-<em>Startup Screen: pick the shelf slot opens on at boot.</em>
-</p>
-
-<p align="center">
-<img src=".github/resources/screenshots/fork-keep-ff-pitch.png" width="60%" alt="The Gameplay settings page: Keep FF Pitch selected under Fast Forward Sound, Run-Ahead, and a down arrow under the last visible row"><br>
-<em>The Gameplay page: Keep FF Pitch, and ▼ when more settings are below.</em>
-</p>
-
-<p align="center">
-<img src=".github/resources/screenshots/fork-cheat-sheet-page.png" width="60%" alt="The In Game page of the Button Cheat Sheet, buttons in yellow and what they do in white"><br>
+<img src=".github/resources/screenshots/fork-cheat-sheet-page.png" width="60%" alt="The In Game page of the Button Cheat Sheet, each button in a chip and what it does beside it"><br>
 <em>Button Cheat Sheet</em>
 </p>
 
 <p align="center">
-<img src=".github/resources/screenshots/fork-switcher-battery.png" width="60%" alt="The save state switcher with START Help left of A Load in its bottom bar, and the battery badge in the bezel's bottom-right corner"><br>
-<em>The battery percentage in the bottom-right corner, and START Help to open the cheat sheet from the save state switcher.</em>
+<img src=".github/resources/screenshots/fork-general.png" width="60%" alt="The General settings page with Startup Screen selected and set to Favorites, and the Favorites row set to Show"><br>
+<em>Startup Screen and Show / hide Favorites, on the General page.</em>
+</p>
+
+<p align="center">
+<img src=".github/resources/screenshots/fork-keep-ff-pitch.png" width="60%" alt="The Gameplay settings page with Keep FF Pitch selected and on, under Fast Forward Sound"><br>
+<em>Keep FF Pitch, on the Gameplay page.</em>
+</p>
+
+<p align="center">
+<img src=".github/resources/screenshots/fork-switcher-battery.png" width="60%" alt="The save state switcher over a GBA game with the SP frame: START Button Help left of A Load, and the battery badge bottom-right"><br>
+<em>START Button Help in the save state switcher, and the battery badge on the GBA SP frame.</em>
 </p>
 
 ---

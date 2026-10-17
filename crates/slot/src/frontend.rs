@@ -8,15 +8,15 @@ use slot_power::{Battery, Platform, Power};
 use slot_store::{format_stamp, BezelPick, Platform as Console};
 use slot_ui::{
     badge_face, battery_badge_face, bezel_face, cart_shadow, cheat_sheet_face, chip_face,
-    chip_shadow_face, core_button_legends, date_time_text, default_game_bezel_face, favorite_face,
-    footer_ink, game_bezel_face, gb_cart_shadow, hhmm, hint_face, icon_face, link_button_legends,
-    menu_face, modded_badge_face, photo_face, quick_caret_face, quick_label_face,
-    quick_legend_faces, quick_pointer_face, quick_value_face, rebuild_count_face,
-    rebuild_title_face, set_clock_hint_face, slot_back, slot_back_light, slot_front,
-    slot_front_light, socket_face, sticker_face, title_face, toast_face, version_face,
-    wallpaper_face, word_ink, CartFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces,
-    QuickRow, QuickValue, RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX,
-    HUD_ICON_PX, HUD_INK, LEGEND,
+    chip_shadow_face, classic_bezel_face, core_button_legends, date_time_text,
+    default_game_bezel_face, favorite_face, footer_ink, game_bezel_face, gb_cart_shadow, hhmm,
+    hint_face, icon_face, link_button_legends, menu_face, modded_badge_face, panel_bezel_face,
+    photo_face, quick_caret_face, quick_label_face, quick_legend_faces, quick_pointer_face,
+    quick_value_face, rebuild_count_face, rebuild_title_face, set_clock_hint_face, slot_back,
+    slot_back_light, slot_front, slot_front_light, socket_face, sticker_face, title_face,
+    toast_face, version_face, wallpaper_face, word_ink, CartFace, GbShell, Icon, LinkBadge,
+    PowerChoice, QuickMenuFaces, QuickRow, QuickValue, RebuildScreen, StickerFields, Toast,
+    UndoFace, ALERT_PX, BEZEL_PANEL_H, BEZEL_PANEL_W, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
 };
 
 use crate::app::{App, LinkRow, Phase};
@@ -98,7 +98,8 @@ struct QuickPalette {
 #[derive(Default)]
 struct BezelSync {
     tex: Option<TexId>,
-    image: Option<(Console, BezelPick)>,
+    image: Option<(Console, BezelPick, bool)>,
+    panel: bool,
     labels: [String; 3],
     faces: [(Option<TexId>, Option<TexId>); 3],
 }
@@ -549,8 +550,19 @@ impl Frontend {
         sync_quick_clock(self.session.app_mut(), compositor, &mut self.quick_clock);
         sync_quick_palette(self.session.app_mut(), compositor, &mut self.quick_palette);
         sync_wallpaper(self.session.app_mut(), compositor, &mut self.wallpaper);
-        sync_game_bezel(self.session.app_mut(), compositor, &mut self.game_bezel);
-        compositor.set_game_bezel(self.session.app().shown_game_bezel());
+        let framed = self.session.app().framed_panel();
+        sync_game_bezel(
+            self.session.app_mut(),
+            compositor,
+            &mut self.game_bezel,
+            framed,
+        );
+        let app = self.session.app();
+        let bezel = app.shown_game_bezel();
+        let panel = self.game_bezel.panel;
+        let in_play = matches!(app.phase(), Phase::Playing { .. }) && !app.game_menu_open();
+        compositor.set_game_bezel(bezel.filter(|_| !panel));
+        compositor.set_panel_art(bezel.filter(|_| panel && in_play));
         compositor.set_sp_frame(self.session.app().sp_frame());
         sync_core_picker(
             self.session.app_mut(),
@@ -980,14 +992,21 @@ fn sync_cheat_sheet(app: &mut App, compositor: &mut Compositor, state: &mut Chea
     app.set_cheat_sheet_face(id);
 }
 
-fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut BezelSync) {
+fn sync_game_bezel(
+    app: &mut App,
+    compositor: &mut Compositor,
+    state: &mut BezelSync,
+    framed: bool,
+) {
     let platform = app.playing_platform();
     let pick = app.resolved_bezel(platform);
-    let shown = (platform, pick);
+    let shown = (platform, pick, framed);
     if state.image.as_ref() != Some(&shown) {
-        let rgba = match &shown.1 {
+        let face = match &shown.1 {
             BezelPick::None | BezelPick::Ags102 => None,
-            BezelPick::Default => default_game_bezel_face(platform == Console::Gbc),
+            BezelPick::Classic => classic_bezel_face(platform == Console::Gbc).map(|f| (f, true)),
+            BezelPick::Default => default_game_bezel_face(platform == Console::Gbc)
+                .map(|rgba| panel_fit(rgba, framed)),
             BezelPick::File(name) => app
                 .root()
                 .map(|root| {
@@ -995,15 +1014,21 @@ fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut Bezel
                         .join(platform.dir_name())
                         .join(name)
                 })
-                .and_then(|path| game_bezel_face(&path)),
+                .and_then(|path| game_bezel_face(&path))
+                .map(|rgba| panel_fit(rgba, framed)),
         };
-        let tex = rgba.map(|rgba| match state.tex {
+        state.panel = face.as_ref().is_some_and(|(_, panel)| *panel);
+        let (w, h) = match state.panel {
+            true => (BEZEL_PANEL_W, BEZEL_PANEL_H),
+            false => (OUT_W, OUT_H),
+        };
+        let tex = face.map(|(rgba, _)| match state.tex {
             Some(id) => {
-                compositor.update_texture(id, OUT_W, OUT_H, &rgba);
+                compositor.update_texture(id, w, h, &rgba);
                 id
             }
             None => {
-                let id = compositor.create_texture(OUT_W, OUT_H, &rgba);
+                let id = compositor.create_texture(w, h, &rgba);
                 state.tex = Some(id);
                 id
             }
@@ -1035,6 +1060,13 @@ fn sync_game_bezel(app: &mut App, compositor: &mut Compositor, state: &mut Bezel
             (lit, lit_size.0, lit_size.1),
         );
         state.labels[at] = label;
+    }
+}
+
+fn panel_fit(rgba: Vec<u8>, framed: bool) -> (Vec<u8>, bool) {
+    match framed.then(|| panel_bezel_face(&rgba)).flatten() {
+        Some(panel) => (panel, true),
+        None => (rgba, false),
     }
 }
 

@@ -1288,12 +1288,12 @@ fn a_wide_panel_offers_gb_and_gbc_frames_from_none_through_the_card() {
 fn a_four_by_three_panel_keeps_ags_102_until_another_frame_is_picked() {
     let (d, mut a, _) = on_carousel();
     a.set_panel((640, 480));
-    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
-        assert_eq!(
-            a.resolved_bezel(platform),
-            BezelPick::Ags102,
-            "{platform:?}"
-        );
+    for (platform, want) in [
+        (Platform::Gba, BezelPick::Ags102),
+        (Platform::Gb, BezelPick::Classic),
+        (Platform::Gbc, BezelPick::Classic),
+    ] {
+        assert_eq!(a.resolved_bezel(platform), want, "{platform:?}");
     }
     assert!(a.sp_frame());
     open_at(&mut a, QuickRow::GbaBezel);
@@ -1310,6 +1310,40 @@ fn a_four_by_three_panel_keeps_ags_102_until_another_frame_is_picked() {
     assert_eq!(a.resolved_bezel(Platform::Gbc), BezelPick::Default);
     assert_eq!(read_slot_state(d.path()).bezel_gbc, BezelPick::Default);
     assert_eq!(read_slot_state(d.path()).bezel_gba, BezelPick::Ags102);
+}
+
+#[test]
+fn a_four_by_three_panel_offers_classic_after_default_for_gb_and_gbc_only() {
+    let (d, mut a, _) = on_carousel();
+    a.set_panel((640, 480));
+    open_at(&mut a, QuickRow::GbBezel);
+    for want in [
+        BezelPick::Ags102,
+        BezelPick::None,
+        BezelPick::Default,
+        BezelPick::Classic,
+    ] {
+        press(&mut a, Btn::Right);
+        assert_eq!(a.resolved_bezel(Platform::Gb), want);
+    }
+    assert_eq!(read_slot_state(d.path()).bezel_gb, BezelPick::Classic);
+    while a.quick_menu().is_some() {
+        press(&mut a, Btn::B);
+    }
+    open_at(&mut a, QuickRow::GbaBezel);
+    for _ in 0..3 {
+        press(&mut a, Btn::Right);
+        assert_ne!(a.resolved_bezel(Platform::Gba), BezelPick::Classic);
+    }
+}
+
+#[test]
+fn a_classic_frame_on_a_wide_panel_reads_back_as_none() {
+    let (_d, a, _) = on_carousel_with(SlotState {
+        bezel_gbc: BezelPick::Classic,
+        ..SlotState::default()
+    });
+    assert_eq!(a.resolved_bezel(Platform::Gbc), BezelPick::None);
 }
 
 #[test]

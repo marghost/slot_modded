@@ -225,14 +225,29 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             show_favorites: true,
             show_titles: false,
             bezel_gba: BezelPick::Ags102,
-            bezel_gb: BezelPick::Ags102,
-            bezel_gbc: BezelPick::Ags102,
+            bezel_gb: BezelPick::Classic,
+            bezel_gbc: BezelPick::Classic,
             recents: Vec::new(),
             favorites: Vec::new(),
             shelf: None,
             shelf_cart: None,
         }
     );
+}
+
+#[test]
+fn a_classic_frame_round_trips_and_a_saved_ags_102_stays() {
+    let d = tmp_root();
+    let s = SlotState {
+        bezel_gb: BezelPick::Ags102,
+        bezel_gbc: BezelPick::Classic,
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &s).unwrap();
+    let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+    assert!(text.contains("bezel_gb=ags-102\n"), "{text}");
+    assert!(text.contains("bezel_gbc=classic\n"), "{text}");
+    assert_eq!(read_slot_state(d.path()), s);
 }
 
 #[test]

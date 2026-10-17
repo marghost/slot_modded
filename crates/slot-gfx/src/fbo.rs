@@ -35,9 +35,12 @@ pub struct Compositor {
     bezel_prog: gl::types::GLuint,
     u_bezel_gain: gl::types::GLint,
     u_bezel_alpha: gl::types::GLint,
+    u_bezel_uv: gl::types::GLint,
     bezel: Option<gl::types::GLuint>,
     overlay: Option<(gl::types::GLuint, u32, u32)>,
     game_bezel: Option<TexId>,
+    panel_art: Option<TexId>,
+    art_drawn: bool,
     sp_frame: bool,
     turn: Option<Turn>,
 }
@@ -77,13 +80,8 @@ impl Compositor {
             gl::Uniform1i(crate::gl::uniform_location(bezel_prog, "u_tex"), 0);
             let u_bezel_gain = crate::gl::uniform_location(bezel_prog, "u_gain");
             let u_bezel_alpha = crate::gl::uniform_location(bezel_prog, "u_alpha");
-            gl::Uniform4f(
-                crate::gl::uniform_location(bezel_prog, "u_uv"),
-                0.0,
-                0.0,
-                1.0,
-                1.0,
-            );
+            let u_bezel_uv = crate::gl::uniform_location(bezel_prog, "u_uv");
+            gl::Uniform4f(u_bezel_uv, 0.0, 0.0, 1.0, 1.0);
 
             Ok(Compositor {
                 fbo,
@@ -104,9 +102,12 @@ impl Compositor {
                 bezel_prog,
                 u_bezel_gain,
                 u_bezel_alpha,
+                u_bezel_uv,
                 bezel: None,
                 overlay: None,
                 game_bezel: None,
+                panel_art: None,
+                art_drawn: false,
                 sp_frame: true,
                 turn: None,
             })
@@ -151,6 +152,7 @@ impl Compositor {
                     self.in_game_rect(|c| {
                         c.game.draw(&c.quad);
                         c.draw_game_bezel();
+                        c.draw_panel_art();
                     });
                 }
                 Draw::Shot { tex } => {
@@ -196,6 +198,94 @@ impl Compositor {
 
     pub fn set_sp_frame(&mut self, on: bool) {
         self.sp_frame = on;
+    }
+
+    pub fn set_panel_art(&mut self, tex: Option<TexId>) {
+        self.panel_art = tex;
+    }
+
+    fn draw_panel_art(&mut self) {
+        let Some(tex) = self
+            .panel_art
+            .filter(|_| crate::bezel::framed(self.window) && !self.sp_frame && !self.native())
+        else {
+            return;
+        };
+        let (_, _, _, h) = blit_rect(self.window, 0.0);
+        let below = (self.window.1 as i32 - h) / 2;
+        let above = self.window.1 as i32 - below - h;
+        let (x, y, w, fh) = self.game.frame();
+        let unit = fh / h as f32;
+        self.sprites.set_target(Canvas::FRAMED);
+        self.sprites.draw(
+            &[Draw::Tex {
+                x,
+                y: y - above as f32 * unit,
+                w,
+                h: self.window.1 as f32 * unit,
+                tex,
+                alpha: 1.0,
+            }],
+            &self.quad,
+        );
+        self.sprites
+            .set_target(Canvas::of(self.layout, self.window));
+        self.art_drawn = w > OUT_W as f32 - 0.5 && fh > OUT_H as f32 - 0.5;
+    }
+
+    fn draw_panel_bars(&self, window: (u32, u32), below: i32, h: i32) {
+        let Some(tex) = self
+            .panel_art
+            .filter(|_| self.art_drawn)
+            .and_then(|id| self.sprites.source(id))
+        else {
+            return;
+        };
+        let total = window.1 as f32;
+        let above = window.1 as i32 - below - h;
+        unsafe {
+            gl::UseProgram(self.bezel_prog);
+            gl::Uniform3f(self.u_bezel_gain, self.gain[0], self.gain[1], self.gain[2]);
+            gl::Uniform1f(self.u_bezel_alpha, 1.0);
+            gl::BindTexture(gl::TEXTURE_2D, tex);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::Viewport(0, below + h, window.0 as i32, above);
+            gl::Uniform4f(
+                self.u_bezel_uv,
+                0.0,
+                above as f32 / total,
+                1.0,
+                -above as f32 / total,
+            );
+        }
+        self.quad.draw();
+        unsafe {
+            gl::Viewport(0, 0, window.0 as i32, below);
+            gl::Uniform4f(self.u_bezel_uv, 0.0, 1.0, 1.0, -below as f32 / total);
+        }
+        self.quad.draw();
+        unsafe { gl::Uniform4f(self.u_bezel_uv, 0.0, 0.0, 1.0, 1.0) };
+        self.draw_overlay(window, 0);
+        unsafe { gl::Disable(gl::BLEND) };
+    }
+
+    fn draw_overlay(&self, window: (u32, u32), drop: i32) {
+        let Some((tex, w, h)) = self.overlay else {
+            return;
+        };
+        let scale = window.0 as f32 / OUT_W as f32;
+        let (w, h) = (
+            (w as f32 * scale).round() as i32,
+            (h as f32 * scale).round() as i32,
+        );
+        let (x, y) = (window.0 as i32 - w, -drop);
+        unsafe {
+            gl::Viewport(x, y, w, h);
+            gl::Uniform1f(self.u_bezel_alpha, OVERLAY_ALPHA);
+            gl::BindTexture(gl::TEXTURE_2D, tex);
+        }
+        self.quad.draw();
     }
 
     fn draw_game_bezel(&mut self) {
@@ -352,6 +442,7 @@ impl Compositor {
 
     pub fn begin_frame(&mut self, layout: Layout) {
         self.layout = layout;
+        self.art_drawn = false;
         let size = if self.native() {
             self.window
         } else {
@@ -465,6 +556,9 @@ impl Compositor {
             y = (window.1 as i32 - h) / 2;
         }
         self.blit_part(x, y, w, h, [0.0, 0.0, 1.0, 1.0]);
+        if framed && !self.sp_frame {
+            return self.draw_panel_bars(window, y, h);
+        }
         let Some(bezel) = self
             .bezel
             .filter(|_| framed && self.sp_frame && self.slide > 0.0)
@@ -482,20 +576,7 @@ impl Compositor {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
         self.quad.draw();
-        if let Some((tex, w, h)) = self.overlay {
-            let scale = window.0 as f32 / OUT_W as f32;
-            let (w, h) = (
-                (w as f32 * scale).round() as i32,
-                (h as f32 * scale).round() as i32,
-            );
-            let (x, y) = (window.0 as i32 - w, -drop);
-            unsafe {
-                gl::Viewport(x, y, w, h);
-                gl::Uniform1f(self.u_bezel_alpha, OVERLAY_ALPHA);
-                gl::BindTexture(gl::TEXTURE_2D, tex);
-            }
-            self.quad.draw();
-        }
+        self.draw_overlay(window, drop);
         unsafe { gl::Disable(gl::BLEND) };
     }
 }

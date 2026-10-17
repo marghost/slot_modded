@@ -156,6 +156,7 @@ pub enum BezelPick {
     Default,
     #[default]
     Ags102,
+    Classic,
     File(String),
 }
 
@@ -165,6 +166,7 @@ impl BezelPick {
             BezelPick::None => "none".to_string(),
             BezelPick::Default => "default".to_string(),
             BezelPick::Ags102 => "ags-102".to_string(),
+            BezelPick::Classic => "classic".to_string(),
             BezelPick::File(name) => name.clone(),
         }
     }
@@ -174,6 +176,7 @@ impl BezelPick {
             BezelPick::None => "None".to_string(),
             BezelPick::Default => "Default".to_string(),
             BezelPick::Ags102 => "AGS-102".to_string(),
+            BezelPick::Classic => "Classic".to_string(),
             BezelPick::File(name) => name
                 .rsplit_once('.')
                 .map(|(stem, _)| stem)
@@ -187,6 +190,7 @@ impl BezelPick {
             "none" => BezelPick::None,
             "default" | "shipped" => BezelPick::Default,
             "" | "ags-102" => BezelPick::Ags102,
+            "classic" => BezelPick::Classic,
             other => BezelPick::File(other.to_string()),
         }
     }
@@ -405,8 +409,8 @@ impl Default for SlotState {
             show_favorites: true,
             show_titles: false,
             bezel_gba: BezelPick::Ags102,
-            bezel_gb: BezelPick::Ags102,
-            bezel_gbc: BezelPick::Ags102,
+            bezel_gb: BezelPick::Classic,
+            bezel_gbc: BezelPick::Classic,
             recents: Vec::new(),
             favorites: Vec::new(),
             shelf: None,

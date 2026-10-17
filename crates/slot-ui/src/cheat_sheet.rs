@@ -67,6 +67,7 @@ pub const CHEAT_PAGES: [CheatPage; 4] = [
         after_rule: &[
             ("Close lid", "Save state, screen off"),
             ("Shut 3 min", "Power off, resumes"),
+            ("Hold POWER", "Power off"),
         ],
     },
 ];

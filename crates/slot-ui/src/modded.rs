@@ -8,7 +8,7 @@ use crate::UndoFace;
 const AVATAR_PNG: &[u8] = include_bytes!("../assets/avatar.png");
 
 pub const MODDED_TAG: &str = "_modded";
-pub const MODDED_VERSION: &str = "v1.6.0-mod.4.0";
+pub const MODDED_VERSION: &str = "v1.7.0-mod.5.0";
 pub const MODDED_LINK: &str = "github.com/marghost";
 pub const BADGE_W: u32 = 240;
 pub const BADGE_H: u32 = 122;

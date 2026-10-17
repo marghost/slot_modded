@@ -3,7 +3,7 @@
 Fork versions read `v<slot version>-mod.<feature>.<update>`: the first mod number goes up with new fork features, the
 second with upstream merges, fixes and small changes.
 
-## v1.7.0-mod.4.1 (marghost fork, not released yet)
+## v1.7.0-mod.5.0 (marghost fork, not released yet)
 
 Changes made in this fork since v1.6.0-mod.4.0 (2026-10-15). Written by Claude Opus (AI), see the
 [Fork AI Disclosure](README.md#fork-ai-disclosure):
@@ -17,8 +17,16 @@ Changes made in this fork since v1.6.0-mod.4.0 (2026-10-15). Written by Claude O
 - Startup Screen has a new first choice, **Last Used**, now the default: slot opens on the shelf and game you were on
   at power off, as the original 1.7.0 does. A choice you saved before is kept. Each shelf still opens on its own last
   game.
-- The battery badge shows only with the GBA SP frame. With a GB or GBC bezel the SP frame is not drawn, so neither is
-  the badge.
+- New **Classic** bezels for Game Boy and Game Boy Color, made for 640x480 screens such as the RG35XXSP: the
+  POWER light on the left, the GAME BOY or GAME BOY COLOR logo on the right, and a window that sits exactly on the
+  game picture. They are the default on 4:3 screens; a card that already saved another bezel keeps it, so pick
+  **Classic** once in MENU → Screen → Game Boy / Game Boy Color → **Bezel**. Adapted from mugwomp93's "Perfect DMG-EX"
+  and "Perfect GBC" bezels, as collected in [knulli-bezels](https://github.com/chrizzo-hb/knulli-bezels) by
+  chrizzo-hb (CC BY-SA 4.0, see `licenses/`).
+- On 4:3 screens, GB and GBC bezels no longer leave black bars above and below the game: the original's Default
+  bezel and your own PNGs are extended to the top and bottom of the screen.
+- The battery badge shows again with every bezel (AGS-102, Classic, Default or your own), bottom-right. With the
+  bezel set to None there is no badge.
 
 ## [v1.6.0-mod.4.0](https://github.com/marghost/slot_modded/releases/tag/v1.6.0-mod.4.0) (marghost fork)
 

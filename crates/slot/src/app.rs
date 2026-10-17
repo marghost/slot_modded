@@ -1138,6 +1138,9 @@ impl App {
         if platform != Platform::Gba {
             choices.push(BezelPick::Default);
         }
+        if platform != Platform::Gba && self.framed_panel() {
+            choices.push(BezelPick::Classic);
+        }
         if self.framed_panel() {
             choices.push(BezelPick::Ags102);
         }
@@ -2864,7 +2867,7 @@ impl App {
         }
     }
 
-    fn framed_panel(&self) -> bool {
+    pub fn framed_panel(&self) -> bool {
         slot_gfx::framed(self.panel)
     }
 
