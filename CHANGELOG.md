@@ -3,13 +3,18 @@
 Fork versions read `v<slot version>-mod.<feature>.<update>`: the first mod number goes up with new fork features, the
 second with upstream merges, fixes and small changes.
 
-## v1.7.0-mod.5.0 (marghost fork, not released yet)
+## [v1.7.0-mod.5.0](https://github.com/marghost/slot_modded/releases/tag/v1.7.0-mod.5.0) (marghost fork)
 
 Changes made in this fork since v1.6.0-mod.4.0 (2026-10-15). Written by Claude Opus (AI), see the
 [Fork AI Disclosure](README.md#fork-ai-disclosure):
 
 - Merged the original slot's [1.7.0 release](https://github.com/BrandonKowalski/slot/releases/tag/v1.7.0) (main at
   34ac380). Its changes are listed under 1.7.0 below.
+- Merged the original slot's later work (main at e5b12ad, not released yet): holding POWER now powers off directly,
+  Restart moved to **X** on the About page, game audio is resampled to 48 kHz with a cleaner filter, the lowest
+  backlight step is brighter, a save made with the clock behind is still the newest, and the RG35XX-H is in the
+  device list. Keep FF Pitch works as before.
+- The Button Cheat Sheet's State Switcher page has a new line: **Hold POWER** → Power off.
 - Bezels are now the original's, by Markus Maribu ([slot #77](https://github.com/BrandonKowalski/slot/issues/77)):
   MENU → Screen → Game Boy Advance, Game Boy Color or Game Boy → **Bezel**, with PNGs in `Bezels/GBA`, `Bezels/GB` and
   `Bezels/GBC`. The fork's own bezel code and its RG35XXSP-fitted bezels are gone. A `bezel_gb=shipped` or
