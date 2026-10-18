@@ -289,6 +289,22 @@ impl Compositor {
         );
         self.sprites
             .set_target(Canvas::of(self.layout, self.window));
+        self.art_drawn = true;
+    }
+
+    fn draw_whole_panel_badge(&self, window: (u32, u32)) {
+        if !self.art_drawn {
+            return;
+        }
+        unsafe {
+            gl::UseProgram(self.bezel_prog);
+            gl::Uniform3f(self.u_bezel_gain, self.gain[0], self.gain[1], self.gain[2]);
+            gl::Uniform4f(self.u_bezel_uv, 0.0, 0.0, 1.0, 1.0);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+        self.draw_overlay(window, 0);
+        unsafe { gl::Disable(gl::BLEND) };
     }
 
     fn draw_panel_bars(&self, window: (u32, u32), below: i32, h: i32) {
@@ -608,13 +624,14 @@ impl Compositor {
         if self.integer_viewport().is_some() {
             let (_, _, band, _) = blit_rect(window, 0.0);
             let dx = (self.shake * band as f32 / OUT_W as f32).round() as i32;
-            return self.blit_part(
+            self.blit_part(
                 dx,
                 0,
                 window.0 as i32,
                 window.1 as i32,
                 [0.0, 0.0, 1.0, 1.0],
             );
+            return self.draw_whole_panel_badge(window);
         }
         let framed = crate::bezel::framed(window);
         let (x, mut y, w, h) = blit_rect(window, self.shake);
