@@ -3,9 +3,10 @@
 Fork versions read `v<slot version>-mod.<feature>.<update>`: the first mod number goes up with new fork features, the
 second with upstream merges, fixes and small changes.
 
-## Unreleased (marghost fork)
+## [v1.7.0-mod.6.0](https://github.com/marghost/slot_modded/releases/tag/v1.7.0-mod.6.0) (marghost fork)
 
-Written by Claude Opus (AI), see the [Fork AI Disclosure](README.md#fork-ai-disclosure):
+Changes made in this fork since v1.7.0-mod.5.0 (2026-10-17). Written by Claude Opus (AI), see the
+[Fork AI Disclosure](README.md#fork-ai-disclosure):
 
 - New **Integer Scale** for Game Boy and Game Boy Color on 4:3 screens such as the RG35XXSP
   ([slot #115](https://github.com/BrandonKowalski/slot/issues/115)): MENU → Screen → Game Boy / Game Boy Color →
@@ -15,6 +16,9 @@ Written by Claude Opus (AI), see the [Fork AI Disclosure](README.md#fork-ai-disc
 - With Integer Scale on, the **Classic** bezel switches to a version whose window fits the 3x picture (the same
   mugwomp93 art, CC BY-SA 4.0). The other bezels can't line up with it, so the Bezel row offers only None and Classic,
   and a saved AGS-102, Default or card bezel shows as None until Integer Scale is off again.
+- The battery badge shows with Integer Scale on too, bottom-right as before.
+- README: the Classic GB/GBC screenshots now show real open-source games (Wyrmhole by Quinn Painter, µCity by
+  AntonioND), each beside the same screen with Integer Scale on.
 
 ## [v1.7.0-mod.5.0](https://github.com/marghost/slot_modded/releases/tag/v1.7.0-mod.5.0) (marghost fork)
 
