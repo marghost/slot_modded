@@ -98,7 +98,7 @@ struct QuickPalette {
 #[derive(Default)]
 struct BezelSync {
     tex: Option<TexId>,
-    image: Option<(Console, BezelPick, bool)>,
+    image: Option<(Console, BezelPick, bool, bool)>,
     panel: bool,
     labels: [String; 3],
     faces: [(Option<TexId>, Option<TexId>); 3],
@@ -533,6 +533,12 @@ impl Frontend {
         compositor.set_screen_footer(self.session.app().screen_footer());
         compositor.set_overlay_slide(self.session.app().overlay_slide());
         compositor.set_game_source_rect(self.session.app().source_rect());
+        compositor.set_integer_scale(
+            self.session
+                .app()
+                .integer_scale()
+                .then(|| self.session.app().playing_platform().picture()),
+        );
         self.grab_link_shot(compositor);
         compositor.begin_frame(self.session.app().layout());
         if self.draw_rebuild(compositor) {
@@ -1000,11 +1006,14 @@ fn sync_game_bezel(
 ) {
     let platform = app.playing_platform();
     let pick = app.resolved_bezel(platform);
-    let shown = (platform, pick, framed);
+    let integer = app.integer_scale();
+    let shown = (platform, pick, framed, integer);
     if state.image.as_ref() != Some(&shown) {
         let face = match &shown.1 {
             BezelPick::None | BezelPick::Ags102 => None,
-            BezelPick::Classic => classic_bezel_face(platform == Console::Gbc).map(|f| (f, true)),
+            BezelPick::Classic => {
+                classic_bezel_face(platform == Console::Gbc, integer).map(|f| (f, true))
+            }
             BezelPick::Default => default_game_bezel_face(platform == Console::Gbc)
                 .map(|rgba| panel_fit(rgba, framed)),
             BezelPick::File(name) => app

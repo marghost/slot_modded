@@ -1,4 +1,4 @@
-use slot_gfx::{blit_rect, blit_rect_fit, fit_rect, fit_scale};
+use slot_gfx::{blit_rect, blit_rect_fit, fit_rect, fit_scale, integer_rect};
 
 #[test]
 fn integer_scale_never_fractional() {
@@ -49,4 +49,10 @@ fn the_fit_is_centred_and_shakes_with_the_picture() {
     assert_eq!((x, w), ((800 - w) / 2, 720));
     assert_eq!((y, h), (0, 480));
     assert!(blit_rect_fit((800, 480), 6.0).0 > x);
+}
+
+#[test]
+fn a_game_boy_at_3x_fills_a_640x480_panel_but_for_its_sides() {
+    assert_eq!(integer_rect((640, 480), (160, 144)), (80, 24, 480, 432));
+    assert_eq!(integer_rect((1280, 960), (160, 144)), (160, 48, 960, 864));
 }

@@ -32,6 +32,7 @@ pub struct GamePass {
     /// Pixels kept for the carousel footer. The picture scales in the space above them.
     bottom: f32,
     src: [f32; 4],
+    integer: bool,
 }
 
 impl GamePass {
@@ -91,6 +92,7 @@ impl GamePass {
             fills: false,
             bottom: 0.0,
             src: WHOLE_TEXTURE,
+            integer: false,
         })
     }
 
@@ -152,6 +154,16 @@ impl GamePass {
         self.src = rect;
     }
 
+    /// Sample only the picture, so its viewport can be a whole multiple of it.
+    pub fn set_integer(&mut self, on: bool) {
+        self.integer = on;
+    }
+
+    fn picture_source(&self) -> [f32; 4] {
+        let p = self.pic;
+        [p[0], p[1], p[2] - p[0], p[3] - p[1]]
+    }
+
     pub fn upload(&mut self, xrgb8888: &[u8]) {
         if xrgb8888.len() < (SRC_W * SRC_H * 4) as usize {
             return;
@@ -174,15 +186,23 @@ impl GamePass {
     }
 
     pub fn draw(&self, quad: &Quad) {
+        let src = match self.integer {
+            true => self.picture_source(),
+            false => self.src,
+        };
         let src = match self.effect {
-            ScreenEffect::Grid => whole_scale_source(self.src, self.fbo_scale),
-            _ => self.src,
+            ScreenEffect::Grid => whole_scale_source(src, self.fbo_scale),
+            _ => src,
         };
         self.draw_source(self.game, quad, src);
     }
 
     pub fn draw_still(&self, tex: gl::types::GLuint, quad: &Quad) {
-        self.draw_source(tex, quad, WHOLE_TEXTURE);
+        let src = match self.integer {
+            true => self.picture_source(),
+            false => WHOLE_TEXTURE,
+        };
+        self.draw_source(tex, quad, src);
     }
 
     fn draw_source(&self, tex: gl::types::GLuint, quad: &Quad, src: [f32; 4]) {

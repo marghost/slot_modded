@@ -4,16 +4,20 @@ use crate::art;
 
 const CLASSIC_GB_PNG: &[u8] = include_bytes!("../../../assets/bezel_gb_classic.png");
 const CLASSIC_GBC_PNG: &[u8] = include_bytes!("../../../assets/bezel_gbc_classic.png");
+const CLASSIC_GB_INT_PNG: &[u8] = include_bytes!("../../../assets/bezel_gb_classic_int.png");
+const CLASSIC_GBC_INT_PNG: &[u8] = include_bytes!("../../../assets/bezel_gbc_classic_int.png");
 
 pub const BEZEL_PANEL_W: u32 = 640;
 pub const BEZEL_PANEL_H: u32 = 480;
 const MIRROR_ROWS: usize = 8;
 
-pub fn classic_bezel_face(colour: bool) -> Option<Vec<u8>> {
-    let png = if colour {
-        CLASSIC_GBC_PNG
-    } else {
-        CLASSIC_GB_PNG
+/// `integer` picks the art whose window fits the 3x picture (480x432) instead of the band's.
+pub fn classic_bezel_face(colour: bool, integer: bool) -> Option<Vec<u8>> {
+    let png = match (colour, integer) {
+        (false, false) => CLASSIC_GB_PNG,
+        (true, false) => CLASSIC_GBC_PNG,
+        (false, true) => CLASSIC_GB_INT_PNG,
+        (true, true) => CLASSIC_GBC_INT_PNG,
     };
     art::cover_bytes(png, BEZEL_PANEL_W, BEZEL_PANEL_H)
 }

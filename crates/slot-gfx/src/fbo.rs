@@ -42,6 +42,7 @@ pub struct Compositor {
     panel_art: Option<TexId>,
     art_drawn: bool,
     sp_frame: bool,
+    integer: Option<(u32, u32)>,
     turn: Option<Turn>,
 }
 
@@ -109,6 +110,7 @@ impl Compositor {
                 panel_art: None,
                 art_drawn: false,
                 sp_frame: true,
+                integer: None,
                 turn: None,
             })
         }
@@ -200,11 +202,44 @@ impl Compositor {
         self.sp_frame = on;
     }
 
+    /// Draw a `picture`-sized game at a whole multiple on a 4:3 panel, or `None` for the band.
+    pub fn set_integer_scale(&mut self, picture: Option<(u32, u32)>) {
+        self.integer = picture;
+        self.game.set_integer(picture.is_some());
+    }
+
+    /// The game's viewport, bottom-up, when it is drawn at a whole multiple.
+    fn integer_viewport(&self) -> Option<(i32, i32, i32, i32)> {
+        let pic = self.integer.filter(|_| crate::bezel::framed(self.window))?;
+        let (x, y, w, h) = crate::bezel::integer_rect(self.window, pic);
+        Some((x, self.window.1 as i32 - y - h, w, h))
+    }
+
+    /// Where the 720x480 canvas lands in the frame. A whole-multiple game needs the full
+    /// panel, so the frame is panel-sized and the canvas keeps its centred band.
+    fn canvas_viewport(&self) -> (i32, i32, i32, i32) {
+        if self.integer_viewport().is_some() && !self.native() {
+            let (_, _, w, h) = blit_rect(self.window, 0.0);
+            return (0, (self.window.1 as i32 - h) / 2, w, h);
+        }
+        (0, 0, self.size.0 as i32, self.size.1 as i32)
+    }
+
+    fn reset_viewport(&mut self) {
+        let (x, y, w, h) = self.canvas_viewport();
+        self.game
+            .set_fbo_scale(w as f32 / OUT_W as f32, h as f32 / OUT_H as f32);
+        unsafe { gl::Viewport(x, y, w, h) };
+    }
+
     pub fn set_panel_art(&mut self, tex: Option<TexId>) {
         self.panel_art = tex;
     }
 
     fn draw_panel_art(&mut self) {
+        if self.integer_viewport().is_some() {
+            return self.draw_whole_panel_art();
+        }
         let Some(tex) = self
             .panel_art
             .filter(|_| crate::bezel::framed(self.window) && !self.sp_frame && !self.native())
@@ -231,6 +266,29 @@ impl Compositor {
         self.sprites
             .set_target(Canvas::of(self.layout, self.window));
         self.art_drawn = w > OUT_W as f32 - 0.5 && fh > OUT_H as f32 - 0.5;
+    }
+
+    /// Integer art is drawn for the panel itself, its window around the whole-multiple game.
+    fn draw_whole_panel_art(&mut self) {
+        let Some(tex) = self.panel_art.filter(|_| !self.native()) else {
+            return;
+        };
+        let (w, h) = (self.window.0 as f32, self.window.1 as f32);
+        unsafe { gl::Viewport(0, 0, self.window.0 as i32, self.window.1 as i32) };
+        self.sprites.set_target(Canvas { w, h });
+        self.sprites.draw(
+            &[Draw::Tex {
+                x: 0.0,
+                y: 0.0,
+                w,
+                h,
+                tex,
+                alpha: 1.0,
+            }],
+            &self.quad,
+        );
+        self.sprites
+            .set_target(Canvas::of(self.layout, self.window));
     }
 
     fn draw_panel_bars(&self, window: (u32, u32), below: i32, h: i32) {
@@ -443,23 +501,20 @@ impl Compositor {
     pub fn begin_frame(&mut self, layout: Layout) {
         self.layout = layout;
         self.art_drawn = false;
-        let size = if self.native() {
+        let size = if self.native() || self.integer_viewport().is_some() {
             self.window
         } else {
             canvas_size(self.window)
         };
         self.resize(size);
         self.sprites.set_target(Canvas::of(layout, self.window));
-        self.game.set_fbo_scale(
-            self.size.0 as f32 / OUT_W as f32,
-            self.size.1 as f32 / OUT_H as f32,
-        );
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.fbo);
             gl::Viewport(0, 0, self.size.0 as i32, self.size.1 as i32);
             gl::ClearColor(BACKDROP[0], BACKDROP[1], BACKDROP[2], BACKDROP[3]);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
+        self.reset_viewport();
     }
 
     pub fn set_bezel(&mut self, w: u32, h: u32, rgba: &[u8]) {
@@ -550,6 +605,17 @@ impl Compositor {
             );
             return;
         }
+        if self.integer_viewport().is_some() {
+            let (_, _, band, _) = blit_rect(window, 0.0);
+            let dx = (self.shake * band as f32 / OUT_W as f32).round() as i32;
+            return self.blit_part(
+                dx,
+                0,
+                window.0 as i32,
+                window.1 as i32,
+                [0.0, 0.0, 1.0, 1.0],
+            );
+        }
         let framed = crate::bezel::framed(window);
         let (x, mut y, w, h) = blit_rect(window, self.shake);
         if framed && !self.sp_frame {
@@ -601,6 +667,15 @@ fn bottom_up_texture(w: u32, h: u32, rgba: &[u8]) -> gl::types::GLuint {
 
 impl Compositor {
     fn in_game_rect(&mut self, draw: impl FnOnce(&mut Self)) {
+        if let Some((x, y, w, h)) = self.integer_viewport() {
+            self.game
+                .set_fbo_scale(w as f32 / OUT_W as f32, h as f32 / OUT_H as f32);
+            self.game.set_origin(x as f32, y as f32);
+            unsafe { gl::Viewport(x, y, w, h) };
+            draw(self);
+            self.game.set_origin(0.0, 0.0);
+            return self.reset_viewport();
+        }
         if !self.native() {
             return draw(self);
         }

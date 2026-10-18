@@ -3,6 +3,19 @@
 Fork versions read `v<slot version>-mod.<feature>.<update>`: the first mod number goes up with new fork features, the
 second with upstream merges, fixes and small changes.
 
+## Unreleased (marghost fork)
+
+Written by Claude Opus (AI), see the [Fork AI Disclosure](README.md#fork-ai-disclosure):
+
+- New **Integer Scale** for Game Boy and Game Boy Color on 4:3 screens such as the RG35XXSP
+  ([slot #115](https://github.com/BrandonKowalski/slot/issues/115)): MENU → Screen → Game Boy / Game Boy Color →
+  **Integer Scale**, or in game MENU → Settings → Screen. The game is drawn at exactly 3x (480x432) instead of 2.67x,
+  so every pixel is the same size and the LCD3x and Grid shaders show their pattern as designed. Off by default, saved
+  per console, hidden on 3:2 screens and for GBA. A game set to Stretch stays stretched.
+- With Integer Scale on, the **Classic** bezel switches to a version whose window fits the 3x picture (the same
+  mugwomp93 art, CC BY-SA 4.0). The other bezels can't line up with it, so the Bezel row offers only None and Classic,
+  and a saved AGS-102, Default or card bezel shows as None until Integer Scale is off again.
+
 ## [v1.7.0-mod.5.0](https://github.com/marghost/slot_modded/releases/tag/v1.7.0-mod.5.0) (marghost fork)
 
 Changes made in this fork since v1.6.0-mod.4.0 (2026-10-15). Written by Claude Opus (AI), see the

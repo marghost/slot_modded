@@ -25,7 +25,7 @@ fn the_game_frame_sits_in_the_middle_of_a_640x480_panel() {
 #[test]
 fn classic_bezels_fill_the_whole_panel() {
     for colour in [false, true] {
-        let face = classic_bezel_face(colour).unwrap();
+        let face = classic_bezel_face(colour, false).unwrap();
         assert_eq!(face.len(), (BEZEL_PANEL_W * BEZEL_PANEL_H * 4) as usize);
     }
 }
@@ -34,7 +34,7 @@ fn classic_bezels_fill_the_whole_panel() {
 fn the_classic_window_lets_the_whole_game_picture_through() {
     let (x0, y0, x1, y1) = picture_on_panel();
     for colour in [false, true] {
-        let face = classic_bezel_face(colour).unwrap();
+        let face = classic_bezel_face(colour, false).unwrap();
         for y in y0.ceil() as u32..y1.floor() as u32 {
             for x in x0.ceil() as u32..x1.floor() as u32 {
                 assert!(alpha(&face, x, y) < 128, "covered at {x},{y}");
@@ -47,7 +47,7 @@ fn the_classic_window_lets_the_whole_game_picture_through() {
 fn the_classic_body_leaves_no_gap_around_the_game_picture() {
     let (x0, y0, x1, y1) = picture_on_panel();
     for colour in [false, true] {
-        let face = classic_bezel_face(colour).unwrap();
+        let face = classic_bezel_face(colour, false).unwrap();
         for y in 0..BEZEL_PANEL_H {
             for x in 0..BEZEL_PANEL_W {
                 let (fx, fy) = (x as f32, y as f32);
@@ -99,4 +99,22 @@ fn the_middle_of_a_filled_bezel_is_the_art_scaled_to_the_panel() {
     let src = &art[((cy * OUT_W + cx) * 4) as usize..][..4];
     let dst = &face[((py * BEZEL_PANEL_W + px) * 4) as usize..][..4];
     assert_eq!(src[3], dst[3]);
+}
+
+#[test]
+fn the_integer_classic_window_is_the_3x_picture_and_nothing_more() {
+    let (x0, y0, x1, y1) = (80, 24, 560, 456);
+    for colour in [false, true] {
+        let face = classic_bezel_face(colour, true).unwrap();
+        assert_eq!(face.len(), (BEZEL_PANEL_W * BEZEL_PANEL_H * 4) as usize);
+        for y in 0..BEZEL_PANEL_H {
+            for x in 0..BEZEL_PANEL_W {
+                let inside = (x0..x1).contains(&x) && (y0..y1).contains(&y);
+                match inside {
+                    true => assert!(alpha(&face, x, y) < 128, "covered at {x},{y}"),
+                    false => assert_eq!(alpha(&face, x, y), 255, "gap at {x},{y}"),
+                }
+            }
+        }
+    }
 }

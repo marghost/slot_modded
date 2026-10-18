@@ -125,11 +125,17 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN_GBC.map(QuickRow::label),
-        ["Shader", "Color Correction", "Bezel"]
+        ["Shader", "Color Correction", "Bezel", "Integer Scale"]
     );
     assert_eq!(
         QuickRow::SCREEN_GB.map(QuickRow::label),
-        ["Shader", "Color Correction", "Palettes", "Bezel"]
+        [
+            "Shader",
+            "Color Correction",
+            "Palettes",
+            "Bezel",
+            "Integer Scale"
+        ]
     );
     assert_eq!(
         QuickRow::GAME.map(QuickRow::label),
@@ -342,7 +348,8 @@ fn the_in_game_pages_hold_their_rows_in_order() {
             QuickRow::Shader,
             QuickRow::ColourCorrection,
             QuickRow::Palette,
-            QuickRow::Bezel
+            QuickRow::Bezel,
+            QuickRow::Integer
         ]
     );
     for row in QuickRow::PLAY {
@@ -400,7 +407,7 @@ fn in_game_rows_read_as_the_menu_shows_them() {
 
 #[test]
 fn a_hidden_palette_and_bezel_leave_two_screen_rows() {
-    let hidden = [QuickRow::Palette, QuickRow::Bezel];
+    let hidden = [QuickRow::Palette, QuickRow::Bezel, QuickRow::Integer];
     assert_eq!(
         QuickRow::Shader.shown(&hidden),
         vec![QuickRow::Shader, QuickRow::ColourCorrection]
@@ -428,7 +435,7 @@ fn screen_opens_a_page_per_console_and_each_backs_out_to_its_console() {
 
 #[test]
 fn screen_rows_in_game_sit_in_a_panel_at_the_bottom() {
-    let hidden = [QuickRow::Palette];
+    let hidden = [QuickRow::Palette, QuickRow::Integer];
     let shader = slot_ui::quick_row_top(QuickRow::Shader, &hidden);
     let colour = slot_ui::quick_row_top(QuickRow::ColourCorrection, &hidden);
     assert_eq!(colour - shader, slot_ui::QUICK_PITCH);

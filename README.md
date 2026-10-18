@@ -45,6 +45,7 @@ Everything technical lives in the wiki, one page per topic all the documentation
 |---|---|
 | **Battery %** in game | Always on, any game and any console, bottom-right of the bezel (4:3 screens like the RG35XXSP are compatible). Green → red as it drains. |
 | **Classic GB / GBC bezels** | Settings: MENU → Screen → Game Boy / Game Boy Color → **Bezel** → Classic (default on 4:3 screens). Full-screen 640x480, no black bars; other bezels fill the bars too. Art by mugwomp93 |
+| **Integer Scale** for GB / GBC | Settings: MENU → Screen → Game Boy / Game Boy Color → **Integer Scale** (also in game: MENU → Settings → Screen). On 4:3 screens like the RG35XXSP, the game is drawn at exactly 3x (480x432) for even pixels; LCD3x and Grid shaders look as designed. The Classic bezel follows it |
 | **Button Cheat Sheet** | Settings: MENU → **Button Cheat Sheet**.  This will tell you all the hotkeys! |
 | **Button Cheat Sheet** in game | In-game menu: tap MENU → **Button Cheat Sheet**, or in the save state switcher (double-tap MENU) → **START** (Button Help) |
 | **Favorite heart** | A pixel heart marks your favorite games on the cartridge, and a banner confirms when **Y** adds or removes one. Your own icon: put your PNG at `System/favorite.png` |

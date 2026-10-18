@@ -42,6 +42,31 @@ const EJECT_HOLD_S: f32 = 0.35;
 
 pub const IN_GAME_MENU: Layout = Layout::Native;
 
+/// The in-game rows to hide, indexed by bits: 1 Palette, 2 Bezel, 4 Integer, 8 Exit Game.
+const IN_GAME_HIDDEN: [&[QuickRow]; 16] = [
+    &[],
+    &[QuickRow::Palette],
+    &[QuickRow::Bezel],
+    &[QuickRow::Palette, QuickRow::Bezel],
+    &[QuickRow::Integer],
+    &[QuickRow::Palette, QuickRow::Integer],
+    &[QuickRow::Bezel, QuickRow::Integer],
+    &[QuickRow::Palette, QuickRow::Bezel, QuickRow::Integer],
+    &[QuickRow::ExitGame],
+    &[QuickRow::Palette, QuickRow::ExitGame],
+    &[QuickRow::Bezel, QuickRow::ExitGame],
+    &[QuickRow::Palette, QuickRow::Bezel, QuickRow::ExitGame],
+    &[QuickRow::Integer, QuickRow::ExitGame],
+    &[QuickRow::Palette, QuickRow::Integer, QuickRow::ExitGame],
+    &[QuickRow::Bezel, QuickRow::Integer, QuickRow::ExitGame],
+    &[
+        QuickRow::Palette,
+        QuickRow::Bezel,
+        QuickRow::Integer,
+        QuickRow::ExitGame,
+    ],
+];
+
 const POWER_ON_S: f32 = 0.22;
 
 const POWER_OFF_S: f32 = 0.16;
@@ -981,17 +1006,14 @@ impl App {
     }
 
     pub fn in_game_hidden(&self) -> &'static [QuickRow] {
-        let no_bezel = self.playing_platform() == Platform::Gba && !self.framed_panel();
-        match (self.palette_live, no_bezel, self.single_cart()) {
-            (true, false, false) => &[],
-            (true, false, true) => &[QuickRow::ExitGame],
-            (true, true, false) => &[QuickRow::Bezel],
-            (true, true, true) => &[QuickRow::Bezel, QuickRow::ExitGame],
-            (false, false, false) => &[QuickRow::Palette],
-            (false, false, true) => &[QuickRow::Palette, QuickRow::ExitGame],
-            (false, true, false) => &[QuickRow::Palette, QuickRow::Bezel],
-            (false, true, true) => &[QuickRow::Palette, QuickRow::Bezel, QuickRow::ExitGame],
-        }
+        let gba = self.playing_platform() == Platform::Gba;
+        let no_bezel = gba && !self.framed_panel();
+        let no_integer = gba || !self.framed_panel();
+        let bits = !self.palette_live as usize
+            | (no_bezel as usize) << 1
+            | (no_integer as usize) << 2
+            | (self.single_cart() as usize) << 3;
+        IN_GAME_HIDDEN[bits]
     }
 
     pub fn gb_palette_label(&self) -> &'static str {
@@ -1013,6 +1035,8 @@ impl App {
             (QuickRow::Bezel, Platform::Gba) => QuickRow::GbaBezel,
             (QuickRow::Bezel, Platform::Gb) => QuickRow::GbBezel,
             (QuickRow::Bezel, Platform::Gbc) => QuickRow::GbcBezel,
+            (QuickRow::Integer, Platform::Gb) => QuickRow::GbInteger,
+            (QuickRow::Integer, Platform::Gbc) => QuickRow::GbcInteger,
             (row, _) => row,
         }
     }
@@ -1022,6 +1046,11 @@ impl App {
             QuickRow::Shader | QuickRow::ColourCorrection => {
                 self.quick_value(self.playing_row(row))
             }
+            QuickRow::Integer => Some(self.playing_row(row))
+                .filter(|r| *r != row)
+                .and_then(|r| self.quick_value(r)),
+            QuickRow::GbInteger => Some(QuickValue::flag(self.state.integer_gb)),
+            QuickRow::GbcInteger => Some(QuickValue::flag(self.state.integer_gbc)),
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
             QuickRow::FastForwardPitch => Some(QuickValue::flag(self.state.ff_pitch)),
@@ -1134,6 +1163,10 @@ impl App {
     }
 
     fn bezel_choices(&self, platform: Platform) -> Vec<BezelPick> {
+        if self.integer_wanted(platform) {
+            // The other frames are cut for the band's picture and would not line up.
+            return vec![BezelPick::None, BezelPick::Classic];
+        }
         let mut choices = vec![BezelPick::None];
         if platform != Platform::Gba {
             choices.push(BezelPick::Default);
@@ -1183,6 +1216,21 @@ impl App {
 
     pub fn sp_frame(&self) -> bool {
         self.resolved_bezel(self.playing_platform()) == BezelPick::Ags102
+    }
+
+    /// GB and GBC at a whole 3x on a 4:3 panel, where the band would scale them by 2.67.
+    /// Stretch fills the band on purpose, so it wins.
+    pub fn integer_scale(&self) -> bool {
+        self.integer_wanted(self.playing_platform()) && self.video_mode != VideoMode::Stretch
+    }
+
+    fn integer_wanted(&self, platform: Platform) -> bool {
+        let on = match platform {
+            Platform::Gba => false,
+            Platform::Gb => self.state.integer_gb,
+            Platform::Gbc => self.state.integer_gbc,
+        };
+        on && self.framed_panel()
     }
 
     pub fn set_game_bezel(&mut self, tex: Option<TexId>) {
@@ -1297,9 +1345,18 @@ impl App {
         );
         match (own, self.framed_panel()) {
             (true, true) => &[],
-            (true, false) => &[QuickRow::GbaBezel],
+            (true, false) => &[
+                QuickRow::GbaBezel,
+                QuickRow::GbInteger,
+                QuickRow::GbcInteger,
+            ],
             (false, true) => &[QuickRow::WallpaperTint],
-            (false, false) => &[QuickRow::WallpaperTint, QuickRow::GbaBezel],
+            (false, false) => &[
+                QuickRow::WallpaperTint,
+                QuickRow::GbaBezel,
+                QuickRow::GbInteger,
+                QuickRow::GbcInteger,
+            ],
         }
     }
 
@@ -2309,7 +2366,10 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
-            | QuickRow::Bezel => {}
+            | QuickRow::Bezel
+            | QuickRow::GbInteger
+            | QuickRow::GbcInteger
+            | QuickRow::Integer => {}
         }
     }
 
@@ -2407,6 +2467,8 @@ impl App {
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
             QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
+            QuickRow::GbInteger => s.integer_gb = !s.integer_gb,
+            QuickRow::GbcInteger => s.integer_gbc = !s.integer_gbc,
             QuickRow::RunAhead => {
                 let n = RUN_AHEAD_MAX + 1;
                 s.runahead = (s.runahead + if right { 1 } else { n - 1 }) % n;
@@ -2439,7 +2501,8 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
-            | QuickRow::Bezel => return,
+            | QuickRow::Bezel
+            | QuickRow::Integer => return,
         }
         self.persist();
     }

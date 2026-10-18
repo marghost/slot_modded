@@ -16,7 +16,7 @@ mod quad;
 mod shaders;
 mod surface;
 
-pub use bezel::{framed, lifted_rect, screen_rect};
+pub use bezel::{framed, integer_rect, lifted_rect, screen_rect};
 pub use draw::{Draw, TexId};
 pub use fbdev::{egl_error, panel_mode, panel_size, FbdevSurface};
 pub use fbo::{canvas_size, Compositor, BACKDROP};
