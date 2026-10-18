@@ -97,14 +97,33 @@ short:
 
 # Screenshots
 
-<p align="center">
-<img src=".github/resources/screenshots/fork-classic-gb.png" width="60%" alt="A Game Boy game with the Classic bezel: POWER light on the left, the GAME BOY logo and stripes on the right, the battery badge bottom-right, no black bars"><br>
-<em>The Classic Game Boy bezel, made for the RG35XXSP's 640x480 screen, with the battery badge.</em>
-</p>
+<table align="center">
+<tr>
+<td align="center" width="50%"><img src=".github/resources/screenshots/fork-classic-gb.png" width="420" alt="Wyrmhole, a Game Boy game, with the Classic bezel: POWER light on the left, the GAME BOY logo and stripes on the right, the battery badge bottom-right, no black bars"><br>
+<em>Classic Game Boy bezel, made for the RG35XXSP's 640x480 screen, with the battery badge.</em></td>
+<td align="center" width="50%"><img src=".github/resources/screenshots/fork-integer-gb.png" width="420" alt="The same Wyrmhole screen drawn at exactly 3x in the Classic Game Boy bezel: every game pixel is the same size, battery badge bottom-right"><br>
+<em>Same game with Integer Scale: exactly 3x, in the Classic bezel cut for it.</em></td>
+</tr>
+<tr>
+<td align="center" colspan="2"><em>Game: <a href="https://github.com/QuinnPainter/Wyrmhole">Wyrmhole</a> by Quinn Painter (MIT).</em></td>
+</tr>
+</table>
+
+<table align="center">
+<tr>
+<td align="center" width="50%"><img src=".github/resources/screenshots/fork-classic-gbc.png" width="420" alt="A city in µCity, a Game Boy Color game, with the Classic bezel: POWER light on the left, the GAME BOY COLOR logo on the right, the battery badge bottom-right"><br>
+<em>Classic Game Boy Color bezel.</em></td>
+<td align="center" width="50%"><img src=".github/resources/screenshots/fork-integer-gbc.png" width="420" alt="The same µCity city drawn at exactly 3x in the Classic Game Boy Color bezel, battery badge bottom-right"><br>
+<em>Same game with Integer Scale.</em></td>
+</tr>
+<tr>
+<td align="center" colspan="2"><em>Game: <a href="https://github.com/AntonioND/ucity">µCity</a> by AntonioND (GPLv3).</em></td>
+</tr>
+</table>
 
 <p align="center">
-<img src=".github/resources/screenshots/fork-classic-gbc.png" width="60%" alt="A Game Boy Color game with the Classic bezel: POWER light on the left, the GAME BOY COLOR logo on the right, the battery badge bottom-right"><br>
-<em>The Classic Game Boy Color bezel.</em>
+<img src=".github/resources/screenshots/fork-integer-setting.png" width="60%" alt="The in-game Screen menu over µCity, with Integer Scale selected and on, under Shader, Color Correction and Bezel"><br>
+<em>Integer Scale in the in-game Screen menu.</em>
 </p>
 
 <p align="center">
